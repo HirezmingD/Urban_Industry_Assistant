@@ -12,7 +12,7 @@
 
 **核心命题**：中国县域经济中，土地一级市场由政府主导，但"这块地适合什么产业"的决策高度依赖人工经验。本作品让 AI Agent 在每次评估中自进化，逐渐逼近最优的"地-产"匹配逻辑。
 
-![Demo 界面截图](https://obsidian-1-1315010744.cos.ap-shanghai.myqcloud.com/pic/2026/202606200101600.png)
+![Demo 界面截图](https://obsidian-1-1315010744.cos.ap-shanghai.myqcloud.com/pic/2026/202606200112538.png)
 
 *▲ 主界面：地图单格悬停高亮 + 点选 sticky note + 右侧对话评估 / 企业匹配 / 自进化面板*
 
