@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Urban_Industry_Assistant — 城市产业空间智能助手</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+
+<header>
+  <h1>🏙 Urban_Industry_Assistant</h1>
+  <span class="subtitle">城市产业空间智能助手</span>
+  <div class="role-switch">
+    <button data-role="government" class="active" id="btn-gov">🏛 政府端</button>
+    <button data-role="enterprise" id="btn-ent">🏢 企业端</button>
+  </div>
+  <span class="health-badge" id="health-badge">●  在线</span>
+</header>
+
+<main>
+  <div id="map"></div>
+  <aside id="panel">
+    <nav class="tabs">
+      <button data-tab="chat" class="active">💬 对话</button>
+      <button data-tab="enterprises">🏭 企业列表</button>
+      <button data-tab="evolution">🧬 自进化</button>
+    </nav>
+    <div id="sticky-note" class="sticky-note hidden">
+      <div class="sticky-arrow"></div>
+      <div class="sticky-header">
+        <span class="sticky-grid-id">📋 ...</span>
+        <button class="sticky-close" title="关闭">&times;</button>
+      </div>
+      <div class="sticky-body" id="sticky-body"></div>
+      <div class="sticky-footer">
+        <button class="sticky-eval-btn" id="sticky-eval-btn">评估此地块 →</button>
+      </div>
+    </div>
+
+    <!-- 对话 Tab -->
+    <section id="tab-chat" class="tab-content active">
+      <div id="chat-info-bar" class="chat-info hidden">
+        <span id="chat-info-text"></span>
+      </div>
+      <div id="chat-messages"></div>
+      <div class="chat-input-area">
+        <input type="text" id="chat-input" placeholder="输入需求，如「城东30亩适合什么产业」" maxlength="500">
+        <button id="chat-send">发送</button>
+      </div>
+    </section>
+
+    <!-- 企业列表 Tab -->
+    <section id="tab-enterprises" class="tab-content">
+      <input type="text" id="ent-search" placeholder="搜索企业名称/行业..." maxlength="100">
+      <div id="ent-list"></div>
+      <div class="ent-actions">
+        <button id="ent-match-btn" disabled>匹配选中企业（0 家）</button>
+      </div>
+    </section>
+
+    <!-- 自进化 Tab -->
+    <section id="tab-evolution" class="tab-content">
+      <div id="evo-stats">
+        <p id="evo-experience">📊 加载中...</p>
+        <div class="progress-bar-wrap">
+          <span>偏好理解度</span>
+          <div class="progress-bar"><div class="progress-fill" id="evo-pref-fill"></div></div>
+          <span class="progress-label" id="evo-pref-label">0%</span>
+        </div>
+        <p id="evo-methodology">🧬 加载中...</p>
+        <p id="evo-capsules">📦 加载中...</p>
+      </div>
+      <div class="radar-wrap">
+        <canvas id="radar-chart" width="280" height="280"></canvas>
+      </div>
+    </section>
+  </aside>
+</main>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
