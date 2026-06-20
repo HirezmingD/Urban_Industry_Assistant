@@ -220,8 +220,10 @@ class EnterpriseMatchRequest(BaseModel):
 
     Args:
         enterprise_ids: 选中的企业 ID 列表
+        bbox: 可选，当前地图视口 bbox "lng1,lat1,lng2,lat2"，不传则用全县范围
     """
     enterprise_ids: list[str] = Field(..., min_length=1, description="企业 ID 列表")
+    bbox: str | None = None
 
 
 class EnterpriseMatchResponse(BaseModel):
@@ -391,7 +393,7 @@ class AgentReply(BaseModel):
     items: list[EvalItem] = Field(default_factory=list)
     policy_citations: list[str] = Field(default_factory=list)
     risks: list[str] = Field(default_factory=list)
-    candidate_grids: list[str] = Field(default_factory=list)
+    candidate_grids: list = Field(default_factory=list)
 
 
 class EnterpriseMatchResult(BaseModel):
@@ -426,3 +428,13 @@ class EvoStatusResponse(BaseModel):
     evolution_count: int = 0
     preference_understanding: float = 0.0
     radar_values: dict[str, float] = Field(default_factory=dict)
+
+
+# ============================================================
+# P1-2 企业匹配增强
+# ============================================================
+
+class GridsGeometryRequest(BaseModel):
+    """批量查询渔网格几何的请求。"""
+    grid_ids: list[str] = Field(..., min_length=1, max_length=200, description="网格 ID 列表")
+    role: str = "government"

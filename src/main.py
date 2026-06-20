@@ -34,7 +34,7 @@ _SEED_ENTERPRISES: list[dict] = [
         "annual_revenue": "1.2亿",
         "space_demand": json.dumps({
             "min_area_sqm": 5000, "max_area_sqm": 10000,
-            "preferred_town": "分水镇", "fallback_towns": ["横村镇", "瑶琳镇"],
+            "preferred_town": "城镇四", "fallback_towns": ["城镇二", "城镇五"],
         }, ensure_ascii=False),
         "requirements": json.dumps({
             "water_supply": True, "electricity_level": "工业用电",
@@ -44,14 +44,14 @@ _SEED_ENTERPRISES: list[dict] = [
     },
     {
         "id": "ENT_002",
-        "name": "富春智能装备有限公司",
+        "name": "主要河流智能装备有限公司",
         "industry": "智能装备",
         "industry_code": "C35",
         "employee_count": 320,
         "annual_revenue": "8.5亿",
         "space_demand": json.dumps({
             "min_area_sqm": 20000, "max_area_sqm": 40000,
-            "preferred_town": "桐君街道", "fallback_towns": ["城南街道"],
+            "preferred_town": "街道一", "fallback_towns": ["街道三"],
         }, ensure_ascii=False),
         "requirements": json.dumps({
             "water_supply": True, "electricity_level": "高压工业用电",
@@ -61,14 +61,14 @@ _SEED_ENTERPRISES: list[dict] = [
     },
     {
         "id": "ENT_003",
-        "name": "桐君生物医药科技有限公司",
+        "name": "城关街道生物医药科技有限公司",
         "industry": "大健康",
         "industry_code": "C27",
         "employee_count": 95,
         "annual_revenue": "6000万",
         "space_demand": json.dumps({
             "min_area_sqm": 3000, "max_area_sqm": 8000,
-            "preferred_town": "富春江镇", "fallback_towns": ["桐君街道"],
+            "preferred_town": "城镇一", "fallback_towns": ["街道一"],
         }, ensure_ascii=False),
         "requirements": json.dumps({
             "water_supply": True, "electricity_level": "工业用电",
@@ -85,7 +85,7 @@ _SEED_ENTERPRISES: list[dict] = [
         "annual_revenue": "20亿",
         "space_demand": json.dumps({
             "min_area_sqm": 50000, "max_area_sqm": 100000,
-            "preferred_town": "城南街道", "fallback_towns": ["桐君街道", "横村镇"],
+            "preferred_town": "街道三", "fallback_towns": ["街道一", "城镇二"],
         }, ensure_ascii=False),
         "requirements": json.dumps({
             "water_supply": True, "electricity_level": "工业用电",
@@ -95,14 +95,14 @@ _SEED_ENTERPRISES: list[dict] = [
     },
     {
         "id": "ENT_005",
-        "name": "瑶琳农产品深加工有限公司",
+        "name": "乡镇一农产品深加工有限公司",
         "industry": "农产品深加工",
         "industry_code": "C13",
         "employee_count": 40,
         "annual_revenue": "2000万",
         "space_demand": json.dumps({
             "min_area_sqm": 2000, "max_area_sqm": 5000,
-            "preferred_town": "瑶琳镇", "fallback_towns": ["分水镇"],
+            "preferred_town": "城镇五", "fallback_towns": ["城镇四"],
         }, ensure_ascii=False),
         "requirements": json.dumps({
             "water_supply": True, "electricity_level": "普通工业用电",
@@ -112,14 +112,14 @@ _SEED_ENTERPRISES: list[dict] = [
     },
     {
         "id": "ENT_006",
-        "name": "莪山文创设计工作室",
+        "name": "乡镇四文创设计工作室",
         "industry": "文创设计",
         "industry_code": "R87",
         "employee_count": 12,
         "annual_revenue": "300万",
         "space_demand": json.dumps({
             "min_area_sqm": 200, "max_area_sqm": 800,
-            "preferred_town": "莪山畲族乡", "fallback_towns": ["分水镇"],
+            "preferred_town": "乡镇一", "fallback_towns": ["城镇四"],
         }, ensure_ascii=False),
         "requirements": json.dumps({
             "water_supply": False, "electricity_level": "商业用电",
@@ -129,14 +129,14 @@ _SEED_ENTERPRISES: list[dict] = [
     },
     {
         "id": "ENT_007",
-        "name": "桐庐云数信息技术有限公司",
+        "name": "中国东南某县云数信息技术有限公司",
         "industry": "数字经济",
         "industry_code": "I65",
         "employee_count": 25,
         "annual_revenue": "800万",
         "space_demand": json.dumps({
             "min_area_sqm": 300, "max_area_sqm": 1000,
-            "preferred_town": "城南街道", "fallback_towns": ["桐君街道"],
+            "preferred_town": "街道三", "fallback_towns": ["街道一"],
         }, ensure_ascii=False),
         "requirements": json.dumps({
             "water_supply": False, "electricity_level": "商业用电",
@@ -146,14 +146,14 @@ _SEED_ENTERPRISES: list[dict] = [
     },
     {
         "id": "ENT_008",
-        "name": "富春新能源科技有限公司",
+        "name": "主要河流新能源科技有限公司",
         "industry": "新能源",
         "industry_code": "C38",
         "employee_count": 150,
         "annual_revenue": "3.5亿",
         "space_demand": json.dumps({
             "min_area_sqm": 10000, "max_area_sqm": 20000,
-            "preferred_town": "横村镇", "fallback_towns": ["分水镇", "桐君街道"],
+            "preferred_town": "城镇二", "fallback_towns": ["城镇四", "街道一"],
         }, ensure_ascii=False),
         "requirements": json.dumps({
             "water_supply": True, "electricity_level": "高压工业用电",
@@ -163,14 +163,14 @@ _SEED_ENTERPRISES: list[dict] = [
     },
     {
         "id": "ENT_009",
-        "name": "桐庐江南家居制造有限公司",
+        "name": "中国东南某县南部家居制造有限公司",
         "industry": "家居制造",
         "industry_code": "C21",
         "employee_count": 80,
         "annual_revenue": "5000万",
         "space_demand": json.dumps({
             "min_area_sqm": 4000, "max_area_sqm": 8000,
-            "preferred_town": "分水镇", "fallback_towns": ["瑶琳镇"],
+            "preferred_town": "城镇四", "fallback_towns": ["城镇五"],
         }, ensure_ascii=False),
         "requirements": json.dumps({
             "water_supply": True, "electricity_level": "工业用电",
@@ -180,14 +180,14 @@ _SEED_ENTERPRISES: list[dict] = [
     },
     {
         "id": "ENT_010",
-        "name": "横村纺织服饰有限公司",
+        "name": "中部纺织服饰有限公司",
         "industry": "纺织服装",
         "industry_code": "C17",
         "employee_count": 200,
         "annual_revenue": "1.5亿",
         "space_demand": json.dumps({
             "min_area_sqm": 6000, "max_area_sqm": 12000,
-            "preferred_town": "横村镇", "fallback_towns": ["分水镇"],
+            "preferred_town": "城镇二", "fallback_towns": ["城镇四"],
         }, ensure_ascii=False),
         "requirements": json.dumps({
             "water_supply": True, "electricity_level": "工业用电",
@@ -204,7 +204,7 @@ _SEED_ENTERPRISES: list[dict] = [
         "annual_revenue": "7000万",
         "space_demand": json.dumps({
             "min_area_sqm": 8000, "max_area_sqm": 15000,
-            "preferred_town": "瑶琳镇", "fallback_towns": [],
+            "preferred_town": "城镇五", "fallback_towns": [],
         }, ensure_ascii=False),
         "requirements": json.dumps({
             "water_supply": True, "electricity_level": "高压工业用电",
@@ -214,14 +214,14 @@ _SEED_ENTERPRISES: list[dict] = [
     },
     {
         "id": "ENT_012",
-        "name": "桐庐味鼎餐饮管理有限公司",
+        "name": "中国东南某县味鼎餐饮管理有限公司",
         "industry": "餐饮",
         "industry_code": "H62",
         "employee_count": 8,
         "annual_revenue": "80万",
         "space_demand": json.dumps({
             "min_area_sqm": 100, "max_area_sqm": 300,
-            "preferred_town": "桐君街道", "fallback_towns": ["城南街道"],
+            "preferred_town": "街道一", "fallback_towns": ["街道三"],
         }, ensure_ascii=False),
         "requirements": json.dumps({
             "water_supply": True, "electricity_level": "商业用电",
@@ -303,6 +303,10 @@ async def startup() -> None:
 
     database.init_db()
     _seed_enterprises_if_empty()
+
+    # 尝试恢复 OAuth2 token（如 SQLite 中有持久化的 refresh_token）
+    from src.services.oauth_client import oauth_client as _oauth_startup
+    _oauth_startup._restore_tokens()
 
     if config.EVOMAP_NODE_ID and config.EVOMAP_NODE_SECRET:
         asyncio.create_task(evo_client.start_heartbeat_loop())

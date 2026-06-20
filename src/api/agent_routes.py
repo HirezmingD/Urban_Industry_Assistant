@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 
 from src.config import CHAT_MAX_LENGTH
 from src.schemas import AgentReply, ChatRequest
@@ -20,7 +20,7 @@ router = APIRouter(prefix="/api/agent", tags=["agent"])
 
 
 @router.post("/chat", response_model=AgentReply)
-async def chat(req: ChatRequest) -> dict:
+async def chat(req: ChatRequest, request: Request) -> dict:
     """对话评估。
 
     接收用户输入（可附带框选范围），返回 Agent 结构化评估结果。
@@ -51,6 +51,10 @@ async def chat(req: ChatRequest) -> dict:
             detail=f"无效的 role: {req.role}，仅接受 government 或 enterprise",
         )
 
+    # 构造 user_id（IP + role）用于去重
+    client_ip = request.client.host if request.client else "127.0.0.1"
+    user_id = f"{client_ip}|{role_lower}"
+
     # 调 eval_service
     try:
         result = await eval_service.chat(
@@ -58,6 +62,7 @@ async def chat(req: ChatRequest) -> dict:
             role=role_lower,
             context=req.context,
             bbox=req.bbox,
+            user_id=user_id,
         )
     except Exception as e:
         logger.exception("eval_service.chat 异常")

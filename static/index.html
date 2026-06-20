@@ -8,76 +8,142 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css">
 <link rel="stylesheet" href="app.css">
 </head>
-<body>
+<body class="light">
 
-<header>
-  <h1>🏙 Urban_Industry_Assistant</h1>
-  <span class="subtitle">城市产业空间智能助手</span>
-  <div class="role-switch">
-    <button data-role="government" class="active" id="btn-gov">🏛 政府端</button>
-    <button data-role="enterprise" id="btn-ent">🏢 企业端</button>
-  </div>
-  <span class="health-badge" id="health-badge">●  在线</span>
+<!-- ===== Header ===== -->
+<header id="top-bar">
+  <div class="top-bar-logo">🏙 Urban_Industry_Assistant</div>
+  <div class="top-bar-subtitle">城市产业空间智能助手</div>
+  <nav class="role-segment" id="role-segment">
+    <button id="btn-gov" data-role="government" class="active">🏛 政府端</button>
+    <button id="btn-ent" data-role="enterprise">🏢 企业端</button>
+  </nav>
+  <span class="health-badge online" id="health-badge">● 在线</span>
 </header>
 
-<main>
-  <div id="map"></div>
-  <aside id="panel">
-    <nav class="tabs">
-      <button data-tab="chat" class="active">💬 对话</button>
-      <button data-tab="enterprises">🏭 企业列表</button>
-      <button data-tab="evolution">🧬 自进化</button>
-    </nav>
-    <div id="sticky-note" class="sticky-note hidden">
-      <div class="sticky-arrow"></div>
-      <div class="sticky-header">
-        <span class="sticky-grid-id">📋 ...</span>
-        <button class="sticky-close" title="关闭">&times;</button>
-      </div>
-      <div class="sticky-body" id="sticky-body"></div>
-      <div class="sticky-footer">
-        <button class="sticky-eval-btn" id="sticky-eval-btn">评估此地块 →</button>
-      </div>
-    </div>
+<main id="app-main" data-role="government">
 
-    <!-- 对话 Tab -->
-    <section id="tab-chat" class="tab-content active">
-      <div id="chat-info-bar" class="chat-info hidden">
+  <!-- ===== 左栏：政府端企业列表 / 企业端需求表单 ===== -->
+  <aside class="left-panel" id="gov-left-panel">
+    <input type="text" class="ent-search" id="ent-search" placeholder="搜索企业名称/行业..." maxlength="100">
+    <div class="ent-tag-bar" id="ent-tag-bar"></div>
+    <div class="ent-card-grid" id="ent-card-grid"></div>
+    <div class="ent-bottom-bar">
+      <button class="ent-match-btn" id="ent-match-btn" disabled>分析选中企业（0 家）</button>
+    </div>
+  </aside>
+
+  <!-- 企业端左栏（默认隐藏） -->
+  <aside class="left-panel" id="ent-left-panel" style="display:none;">
+    <h3 class="panel-title">我的用地需求</h3>
+    <form class="ent-form" id="ent-form">
+      <label>企业名称 <span class="required">*</span></label>
+      <input type="text" name="ent_name" placeholder="请输入企业名称" required>
+
+      <label>所属行业 <span class="required">*</span></label>
+      <select name="industry" id="ent-industry-select" required>
+        <option value="">请选择</option>
+      </select>
+
+      <label>用地面积 <span class="required">*</span></label>
+      <div class="input-with-unit">
+        <input type="number" name="area" min="0" placeholder="面积" required>
+        <select name="area_unit"><option>㎡</option><option>亩</option></select>
+      </div>
+
+      <label>区位偏好</label>
+      <div class="checkbox-group" id="location-prefs">
+        <label><input type="checkbox" name="loc" value="near_dev_zone"> 邻近开发区</label>
+        <label><input type="checkbox" name="loc" value="near_highway"> 邻近高速口</label>
+        <label><input type="checkbox" name="loc" value="near_urban"> 邻近城区</label>
+        <label class="mutual-exclude"><input type="checkbox" name="loc" value="any"> 不限</label>
+      </div>
+
+      <label>配套要求</label>
+      <div class="checkbox-group" id="facility-prefs">
+        <label><input type="checkbox" name="fac" value="sewage"> 污水处理</label>
+        <label><input type="checkbox" name="fac" value="heating"> 集中供热</label>
+        <label><input type="checkbox" name="fac" value="warehouse"> 物流仓储</label>
+        <label><input type="checkbox" name="fac" value="dormitory"> 员工宿舍</label>
+        <label class="mutual-exclude"><input type="checkbox" name="fac" value="any"> 不限</label>
+      </div>
+
+      <label>投资规模</label>
+      <input type="number" name="investment" min="0" placeholder="万元">
+
+      <label>预计年产值</label>
+      <input type="number" name="annual_output" min="0" placeholder="万元">
+
+      <label>预计用工数</label>
+      <input type="number" name="employees" min="0" placeholder="人">
+    </form>
+    <div class="ent-form-actions">
+      <button type="submit" form="ent-form" class="ent-form-submit">提交</button>
+      <button type="reset" form="ent-form" class="ent-form-reset">重置</button>
+    </div>
+  </aside>
+
+  <!-- ===== 中栏：地图 + 输入框 ===== -->
+  <div class="center-column">
+    <div class="map-container" id="map"></div>
+    <div class="center-input">
+      <textarea id="center-chat-input" placeholder="输入您的问题，例如：城东30亩适合什么产业？" maxlength="500" rows="2"></textarea>
+      <button id="center-chat-send">发送</button>
+      <span class="char-count" id="center-char-count">0/500</span>
+    </div>
+  </div>
+
+  <!-- ===== 右栏：AI 对话 + EvoMap ===== -->
+  <div class="right-column">
+    <section class="chat-panel" id="chat-panel">
+      <div class="chat-info-bar" id="chat-info-bar">
         <span id="chat-info-text"></span>
       </div>
-      <div id="chat-messages"></div>
-      <div class="chat-input-area">
-        <input type="text" id="chat-input" placeholder="输入需求，如「城东30亩适合什么产业」" maxlength="500">
-        <button id="chat-send">发送</button>
-      </div>
+      <div class="chat-messages" id="chat-messages"></div>
     </section>
-
-    <!-- 企业列表 Tab -->
-    <section id="tab-enterprises" class="tab-content">
-      <input type="text" id="ent-search" placeholder="搜索企业名称/行业..." maxlength="100">
-      <div id="ent-list"></div>
-      <div class="ent-actions">
-        <button id="ent-match-btn" disabled>匹配选中企业（0 家）</button>
+    <section class="evo-panel" id="evo-panel">
+      <div class="evo-header">
+        <h3 class="evo-title">🧬 Agent 自进化</h3>
+        <span class="evo-role-badge" id="evo-role-badge">政府端</span>
       </div>
-    </section>
-
-    <!-- 自进化 Tab -->
-    <section id="tab-evolution" class="tab-content">
-      <div id="evo-stats">
-        <p id="evo-experience">📊 加载中...</p>
-        <div class="progress-bar-wrap">
-          <span>偏好理解度</span>
-          <div class="progress-bar"><div class="progress-fill" id="evo-pref-fill"></div></div>
-          <span class="progress-label" id="evo-pref-label">0%</span>
+      <nav class="evo-tabs" id="evo-tabs">
+        <button class="evo-tab active" data-evo-tab="radar">能力雷达</button>
+        <button class="evo-tab" data-evo-tab="curve">进化曲线</button>
+        <button class="evo-tab" data-evo-tab="capsules">经验胶囊</button>
+      </nav>
+      <div class="evo-content active" id="evo-content-radar">
+        <div class="radar-wrap">
+          <canvas id="radar-chart" width="240" height="240"></canvas>
         </div>
-        <p id="evo-methodology">🧬 加载中...</p>
-        <p id="evo-capsules">📦 加载中...</p>
       </div>
-      <div class="radar-wrap">
-        <canvas id="radar-chart" width="280" height="280"></canvas>
+      <div class="evo-content" id="evo-content-curve">
+        <div class="curve-wrap">
+          <canvas id="curve-chart" width="460" height="260"></canvas>
+        </div>
+      </div>
+      <div class="evo-content" id="evo-content-capsules">
+        <div class="capsule-list" id="capsule-list"></div>
+      </div>
+      <div class="evo-summary" id="evo-summary">
+        <span class="evo-stat">📊 已学习 <strong id="evo-count">0</strong> 次</span>
+        <span class="evo-stat">🎯 偏好理解度 <strong id="evo-pref">0%</strong></span>
+        <span class="evo-stat">🎁 已贡献 <strong id="evo-caps">0</strong> 条</span>
       </div>
     </section>
-  </aside>
+  </div>
+
+  <!-- Sticky note（地图容器内绝对定位） -->
+  <div id="sticky-note" class="sticky-note hidden">
+    <div class="sticky-arrow"></div>
+    <div class="sticky-header">
+      <span class="sticky-grid-id">📋 ...</span>
+      <button class="sticky-close" title="关闭">&times;</button>
+    </div>
+    <div class="sticky-body" id="sticky-body"></div>
+    <div class="sticky-footer">
+      <button class="sticky-eval-btn" id="sticky-eval-btn">评估此地块 →</button>
+    </div>
+  </div>
 </main>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>

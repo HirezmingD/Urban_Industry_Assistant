@@ -461,6 +461,84 @@ def query_grid_layer(zoom: int, bbox: str | None = None) -> dict[str, Any]:
         conn.close()
 
 
+def get_grid_indicators(grid_ids: list[str]) -> dict[str, dict[str, Any]]:
+    """返回指定网格的完整指标体系。
+
+    查询 land_grid_indicators 表，按 grid_id 返回指标 dict。
+    不 JOIN land_grid_L0——调用方若需空间信息，自行查 L0。
+
+    Args:
+        grid_ids: 待查询的 grid_id 列表。
+
+    Returns:
+        dict: { "grid_1": {"NLD": 0.85, "YLD": 0.72, ...}, ... }
+              不存在的 grid_id 不出现在返回结果中。
+    """
+    if not grid_ids:
+        return {}
+
+    conn = get_connection()
+    try:
+        placeholders = ",".join("?" for _ in grid_ids)
+        rows = conn.execute(
+            f"SELECT * FROM land_grid_indicators WHERE grid_id IN ({placeholders})",
+            grid_ids,
+        ).fetchall()
+        return {r["grid_id"]: dict(r) for r in rows}
+    finally:
+        conn.close()
+
+
+_SCENARIO_FIELDS: dict[str, str] = {
+    "智能制造": "ZNZZ",
+    "物流仓储": "WLCC",
+    "医疗器械": "YLQX",
+    "食品加工": "SPJG",
+}
+
+
+def get_scenario_scores(grid_ids: list[str]) -> dict[str, list[dict[str, Any]]]:
+    """返回四大场景适配度排序结果。
+
+    对给定的 grid_ids，分别按 ZNZZ / WLCC / YLQX / SPJG 降序排列，
+    返回每个场景的 Top N 网格及其得分。
+
+    Args:
+        grid_ids: 待评估的网格列表。
+
+    Returns:
+        dict: {
+            "智能制造": [{"grid_id": "...", "score": 0.85}, ...],
+            "物流仓储": [{"grid_id": "...", "score": 0.78}, ...],
+            "医疗器械": [{"grid_id": "...", "score": 0.72}, ...],
+            "食品加工": [{"grid_id": "...", "score": 0.65}, ...],
+        }
+        每类最多返回 10 条。
+    """
+    if not grid_ids:
+        return {k: [] for k in _SCENARIO_FIELDS}
+
+    conn = get_connection()
+    try:
+        placeholders = ",".join("?" for _ in grid_ids)
+        result: dict[str, list[dict[str, Any]]] = {}
+        for scenario, field in _SCENARIO_FIELDS.items():
+            rows = conn.execute(
+                f"""SELECT grid_id, {field} AS score
+                    FROM land_grid_indicators
+                    WHERE grid_id IN ({placeholders}) AND {field} IS NOT NULL
+                    ORDER BY {field} DESC LIMIT 10""",
+                grid_ids,
+            ).fetchall()
+            result[scenario] = [
+                {"grid_id": r["grid_id"], "score": round(r["score"], 3)}
+                for r in rows
+            ]
+        return result
+    finally:
+        conn.close()
+
+
 def get_grid_stats(grid_ids: list[str]) -> dict[str, Any]:
     """批量查询指定 grid_id 列表的聚合统计。
 

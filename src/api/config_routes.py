@@ -1,7 +1,7 @@
 """
 公开配置端点。
 
-GET /api/config — 返回前端启动需要的公开配置（天地图 key、桐庐 bbox 等）。
+GET /api/config — 返回前端启动需要的公开配置（天地图 key、中国东南某县 bbox 等）。
 注意：DEEPSEEK_API_KEY 绝不暴露。
 """
 from fastapi import APIRouter

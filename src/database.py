@@ -231,6 +231,18 @@ def init_db() -> None:
                 ON evaluations(role)
         """)
 
+        # ---- 4.5. evomap_tokens OAuth2 Token 持久化表 ----
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS evomap_tokens (
+                id            INTEGER PRIMARY KEY CHECK (id = 1),
+                access_token  TEXT,
+                refresh_token TEXT,
+                expires_at    TEXT,
+                scope         TEXT,
+                updated_at    TEXT DEFAULT (datetime('now', 'localtime'))
+            )
+        """)
+
         # ---- 5. evomap_capsules Capsule 缓存表 ----
         conn.execute("""
             CREATE TABLE IF NOT EXISTS evomap_capsules (
@@ -250,6 +262,77 @@ def init_db() -> None:
             CREATE INDEX IF NOT EXISTS idx_capsules_gene
                 ON evomap_capsules(gene_asset_id)
         """)
+
+        # ---- 5.3. gene_snapshots Gene 快照表 ----
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS gene_snapshots (
+                id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                version         INTEGER NOT NULL,
+                created_at      TEXT NOT NULL,
+                updated_at      TEXT NOT NULL,
+                parent_id       INTEGER,
+                weights         TEXT NOT NULL,
+                preferences     TEXT NOT NULL DEFAULT '[]',
+                context         TEXT NOT NULL,
+                change_log      TEXT NOT NULL DEFAULT '{}',
+                evaluation_id   INTEGER,
+                capsule_id      INTEGER,
+                FOREIGN KEY (parent_id) REFERENCES gene_snapshots(id),
+                FOREIGN KEY (evaluation_id) REFERENCES evaluations(id),
+                FOREIGN KEY (capsule_id) REFERENCES evomap_capsules(id)
+            )
+        """)
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_gene_version ON gene_snapshots(version DESC)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_gene_eval ON gene_snapshots(evaluation_id)")
+
+        # ---- 5.5. land_grid_indicators 渔网74字段指标体系 ----
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS land_grid_indicators (
+                grid_id     TEXT PRIMARY KEY,
+                NLD         REAL, YLD         REAL, ZNZZ        REAL,
+                WLCC        REAL, YLQX        REAL, SPJG        REAL,
+                BESTCY      TEXT, BESTSC      REAL, ZHDF        REAL,
+                DLSX        TEXT, DLBM        TEXT, DLMC        TEXT,
+                DLSL        INTEGER, SFHHDL  TEXT, HHDLBM      TEXT,
+                HHDLMC      TEXT, DLHHQK      TEXT, DLPD        REAL,
+                QSSX        TEXT, QSDWMC      TEXT, QSDWSL      INTEGER,
+                SFHHQSDW    TEXT, HHQSDW      TEXT, QSHHQK      TEXT,
+                ZLSX        TEXT, ZLDWMC      TEXT, ZLDWSL      INTEGER,
+                SFHHZLDW    TEXT, HHZLDW      TEXT, ZLHHQK      TEXT,
+                QSXT        REAL,
+                ELEV        REAL, SLOPE       REAL, JSYT        REAL,
+                NDVI        REAL, STMG        REAL, STSP        REAL,
+                PRECIP      REAL, ARID        REAL, PET         REAL,
+                TEMP        REAL,
+                PPFS        TEXT, ZJTBJL      REAL, ZTBNBBH     TEXT,
+                R_NAFLAG    TEXT,
+                DIST_QY     REAL, CNT_QY1K    INTEGER, JJD     REAL,
+                DIST_JT     REAL, CNT_JT1K    INTEGER,
+                DIST_DLFS   REAL, CNT_DLFS1K  INTEGER,
+                DIST_TX     REAL, CNT_TX1K    INTEGER, JTKD    REAL,
+                DIST_GG     REAL, CNT_GG1K    INTEGER, GGZC    REAL,
+                DIST_SWZZ   REAL, CNT_SWZZ5   INTEGER,
+                DIST_KJ     REAL, CNT_KJ5     INTEGER,
+                DIST_YL     REAL, CNT_YL5     INTEGER, SHPT    REAL,
+                MGFX        REAL, MGSP        REAL,
+                NTL         REAL, HFP         REAL,
+                GDPDEN      REAL, KFQD        REAL,
+                POPDEN      REAL, RJJJ        REAL, RJXT       REAL,
+                FOREIGN KEY (grid_id) REFERENCES land_grid_L0(grid_id)
+            )
+        """)
+
+        # 场景适配度排名索引
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_indicators_znzz ON land_grid_indicators(ZNZZ DESC)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_indicators_wlcc ON land_grid_indicators(WLCC DESC)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_indicators_ylqx ON land_grid_indicators(YLQX DESC)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_indicators_spjg ON land_grid_indicators(SPJG DESC)")
+
+        # 综合得分排序索引
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_indicators_zhdf ON land_grid_indicators(ZHDF DESC)")
+
+        # 权属协调度索引
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_indicators_qsxt ON land_grid_indicators(QSXT)")
 
         # ---- 6. interactions 交互日志表 ----
         conn.execute("""
@@ -271,6 +354,18 @@ def init_db() -> None:
             CREATE INDEX IF NOT EXISTS idx_interactions_created
                 ON interactions(created_at)
         """)
+
+        # P1-1: evomap_capsules 扩展展示字段（try/except 防列已存在）
+        for col_def in [
+            ("scene", "TEXT DEFAULT ''"),
+            ("trigger_reason", "TEXT DEFAULT ''"),
+            ("change_reason", "TEXT DEFAULT ''"),
+            ("impact", "TEXT DEFAULT ''"),
+        ]:
+            try:
+                conn.execute(f"ALTER TABLE evomap_capsules ADD COLUMN {col_def[0]} {col_def[1]}")
+            except Exception:
+                pass  # 列已存在
 
         conn.commit()
     finally:

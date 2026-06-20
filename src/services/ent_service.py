@@ -8,11 +8,12 @@ from __future__ import annotations
 
 import json
 import logging
+import random
 from typing import Any
 
 from src.config import TONGLU_BBOX
 from src.database import get_connection
-from src.schemas import EnterpriseMatchResult
+from src.schemas import EnterpriseMatchResult  # kept for suggest endpoint
 from src.services import eval_service, grid_service
 
 logger = logging.getLogger(__name__)
@@ -76,138 +77,104 @@ def list_enterprises(search: str = "") -> list[dict[str, Any]]:
 # ============================================================
 
 async def match_enterprises(
-    enterprise_ids: list[int],
+    enterprise_ids: list[str],
     role: str,
-) -> list[dict[str, Any]]:
-    """政府端多企业批量匹配。
+    bbox: str | None = None,
+) -> dict[str, Any]:
+    """政府端多企业综合布局分析。
 
-    编排步骤：
-      1. 查 enterprises 表拿企业画像
-      2. 对每家企业：在全域 grid 中筛选 → LLM 评估 → 取前 3 候选
-      3. 返回 EnterpriseMatchResult 列表
+    按当前地图视口范围查询候选网格，用户看到哪片区域就分析哪片。
 
     Args:
-        enterprise_ids: 选中的企业 ID 列表（最多 5 个）。
+        enterprise_ids: 选中的企业 ID 列表。
+        role: 用户角色。
+        bbox: 可选，当前地图视口 "lng1,lat1,lng2,lat2"，不传则用全县范围。
+
+    Args:
+        enterprise_ids: 选中的企业 ID 列表。
         role: 用户角色，必须为 "government"。
 
     Returns:
-        list[dict]: EnterpriseMatchResult 列表。
+        dict: 含 summary / items / enterprise_names / total_area_mu 等。
 
     Raises:
         PermissionError: role 非 government。
     """
     if role.lower() not in ("government", "gov"):
         raise PermissionError("企业匹配仅政府端可用")
-
     if not enterprise_ids:
-        return []
+        return {"summary": "", "items": []}
 
+    # 1. 查企业信息
     conn = get_connection()
     try:
-        # 查企业
         placeholders = ",".join("?" for _ in enterprise_ids)
         rows = conn.execute(
-            f"""
-            SELECT id, name, industry, industry_code,
-                   space_demand, requirements, priority_tags
-            FROM enterprises
-            WHERE id IN ({placeholders})
-            """,
-            [str(eid) for eid in enterprise_ids],
+            f"""SELECT id, name, industry, industry_code,
+                       space_demand, requirements, priority_tags
+                FROM enterprises WHERE id IN ({placeholders})""",
+            enterprise_ids,
         ).fetchall()
     finally:
         conn.close()
 
     if not rows:
-        # 空表兜底
-        return []
+        return {"summary": "未找到所选企业", "items": []}
 
-    results: list[dict[str, Any]] = []
+    # 2. 构建企业信息段
+    ent_lines: list[str] = []
+    total_area = 0.0
     for row in rows:
-        ent: dict[str, Any] = dict(row)
-
-        # 解析 JSON 字段
+        ent = dict(row)
         try:
-            space_demand = json.loads(ent.get("space_demand") or "{}")
-        except (json.JSONDecodeError, TypeError):
-            space_demand = {}
-        try:
-            requirements = json.loads(ent.get("requirements") or "{}")
-        except (json.JSONDecodeError, TypeError):
-            requirements = {}
-
-        area_mu = space_demand.get("max_area_sqm", 0) / 666.67 if isinstance(space_demand.get("max_area_sqm"), (int, float)) else 0.0
-
-        # 全域查询候选地块
-        query_result = grid_service.query_by_bbox(
-            (TONGLU_BBOX[0], TONGLU_BBOX[1], TONGLU_BBOX[2], TONGLU_BBOX[3]),
-            role,
+            sd = json.loads(ent.get("space_demand") or "{}")
+        except Exception:
+            sd = {}
+        area_mu = sd.get("max_area_sqm", 0) / 666.67 if sd.get("max_area_sqm") else 0
+        total_area += area_mu
+        town = sd.get("preferred_town", "未指定")
+        ent_lines.append(
+            f"- {ent['name']}（{ent.get('industry', '')}行业）"
+            f"：用地需求约 {area_mu:.0f} 亩，意向区域 {town}"
         )
 
-        features = query_result.get("features", [])
-        # 按 preferred_town 过滤
-        preferred_town = space_demand.get("preferred_town", "")
-        if preferred_town:
-            features = [f for f in features if f.get("town", "") == preferred_town]
+    # 3. 构造综合 prompt
+    user_msg = (
+        f"以下 {len(rows)} 家企业拟在本县落位，请综合评估如何在县域空间内布局，"
+        f"实现产业协同和整体最优：\n\n"
+        + "\n".join(ent_lines) +
+        f"\n\n合计用地需求约 {total_area:.0f} 亩。"
+        f"请从产业协同、空间布局、政策匹配、风险管控四个维度给出综合建议。"
+    )
 
-        if not features:
-            results.append({
-                "enterprise_id": ent["id"],
-                "enterprise_name": ent["name"],
-                "candidates": [],
-            })
-            continue
+    # 4. 当前视口范围查候选网格（或全县 fallback）
+    if bbox:
+        try:
+            parts = [float(p) for p in bbox.split(",")]
+            query_bbox = (parts[0], parts[1], parts[2], parts[3])
+        except Exception:
+            query_bbox = (TONGLU_BBOX[0], TONGLU_BBOX[1], TONGLU_BBOX[2], TONGLU_BBOX[3])
+    else:
+        query_bbox = (TONGLU_BBOX[0], TONGLU_BBOX[1], TONGLU_BBOX[2], TONGLU_BBOX[3])
+    query_result = grid_service.query_by_bbox(query_bbox, zoom=20, role=role)
+    features = query_result.get("features", [])
+    # 随机采样均匀覆盖全县，而非按 grid_id 字母序取前 N 个
+    all_gids = [f["grid_id"] for f in features if f.get("grid_id")]
+    random.shuffle(all_gids)
+    grid_ids = all_gids[:900]
 
-        # 取前 500 个候选 grid_ids（BBOX_QUERY_LIMIT）
-        grid_ids = [f["grid_id"] for f in features[:500] if f.get("grid_id")]
+    # 5. 调 AI 评估
+    result = await eval_service.evaluate_grids(grid_ids, user_msg, role)
 
-        # 调 eval_service 评估
-        user_msg = (
-            f"为企业「{ent['name']}」（{ent.get('industry', '')}行业）寻找用地。"
-            f"面积需求约 {area_mu:.0f} 亩。"
-        )
-        eval_result = await eval_service.evaluate_grids(grid_ids, user_msg, role)
-
-        # 构建候选人列表（取前 3）
-        items = eval_result.get("items", [])
-        candidates: list[dict[str, Any]] = []
-        for i, item in enumerate(items[:3]):
-            # 为每项分配候选 grid_ids（均匀分割）
-            chunk_size = max(1, len(grid_ids) // max(1, len(items)))
-            start = i * chunk_size
-            end = min(len(grid_ids), start + chunk_size)
-            cand_grid_ids = grid_ids[start:end] if grid_ids else []
-
-            # 计算中心点
-            cand_features = [f for f in features if f.get("grid_id") in cand_grid_ids]
-            center: list[float] = [119.5, 29.8]  # 默认桐庐中心
-            if cand_features:
-                lngs = [
-                    (f.get("min_lng", 0) + f.get("max_lng", 0)) / 2
-                    for f in cand_features
-                ]
-                lats = [
-                    (f.get("min_lat", 0) + f.get("max_lat", 0)) / 2
-                    for f in cand_features
-                ]
-                if lngs and lats:
-                    center = [sum(lngs) / len(lngs), sum(lats) / len(lats)]
-
-            candidates.append({
-                "grid_ids": cand_grid_ids,
-                "area_mu": len(cand_grid_ids) * 10000 / 666.67 if cand_grid_ids else area_mu,
-                "score": item.get("score", 0),
-                "reason": item.get("reason", ""),
-                "center": center,
-            })
-
-        results.append({
-            "enterprise_id": ent["id"],
-            "enterprise_name": ent["name"],
-            "candidates": candidates,
-        })
-
-    return [EnterpriseMatchResult.model_validate(d) for d in results]
+    return {
+        "summary": result.get("summary", ""),
+        "items": result.get("items", []),
+        "policy_citations": result.get("policy_citations", []),
+        "risks": result.get("risks", []),
+        "candidate_grids": result.get("candidate_grids", []),
+        "enterprise_names": [r["name"] for r in rows],
+        "total_area_mu": round(total_area, 1),
+    }
 
 
 # ============================================================

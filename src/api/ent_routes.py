@@ -32,8 +32,8 @@ async def list_enterprises(
     return ent_service.list_enterprises(search)
 
 
-@router.post("/match", response_model=list[EnterpriseMatchResult])
-async def match(req: EnterpriseMatchRequest) -> list:
+@router.post("/match")
+async def match(req: EnterpriseMatchRequest) -> dict:
     """政府端多企业批量匹配。
 
     Args:
@@ -48,17 +48,14 @@ async def match(req: EnterpriseMatchRequest) -> list:
     if not req.enterprise_ids:
         raise HTTPException(status_code=400, detail="enterprise_ids 不能为空")
 
-    # 解析 int id
-    try:
-        ids = [int(eid) for eid in req.enterprise_ids]
-    except (ValueError, TypeError):
-        raise HTTPException(status_code=400, detail="enterprise_ids 必须为整数")
+    # 接受字符串 ID（如 "ENT_001"）
+    ids = req.enterprise_ids  # list[str]
 
     if len(ids) > 50:
         raise HTTPException(status_code=400, detail="单次最多匹配 50 家企业")
 
     try:
-        results = await ent_service.match_enterprises(ids, "government")
+        results = await ent_service.match_enterprises(ids, "government", bbox=req.bbox)
     except PermissionError:
         raise HTTPException(status_code=403, detail="企业匹配仅政府端可用")
 

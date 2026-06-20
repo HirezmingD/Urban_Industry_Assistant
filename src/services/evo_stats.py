@@ -14,6 +14,17 @@ from src.database import get_connection
 logger = logging.getLogger(__name__)
 
 
+def _get_gene_version(conn) -> int:
+    """查最新 Gene 版本号。表不存在时返回 0。"""
+    try:
+        row = conn.execute(
+            "SELECT version FROM gene_snapshots ORDER BY version DESC LIMIT 1"
+        ).fetchone()
+        return row["version"] if row else 0
+    except Exception:
+        return 0
+
+
 def get_evolution_stats() -> dict[str, Any]:
     """从本地数据库聚合自进化统计数据。
 
@@ -40,7 +51,6 @@ def get_evolution_stats() -> dict[str, Any]:
         preference = min(95.0, 30.0 + eval_count * 5.0)
 
         # 雷达图五维（基于交互类型计数 + 基线）
-        # TODO[BatchE]: 精确算法基于 evaluations.confidence 平均值 × 100
         interaction_counts: dict[str, int] = {}
         for row in conn.execute(
             "SELECT action_type, COUNT(*) AS cnt FROM interactions GROUP BY action_type"
@@ -65,6 +75,7 @@ def get_evolution_stats() -> dict[str, Any]:
             "methodology_count": capsule_count,
             "capsule_contributed": capsule_count,
             "radar_values": radar_values,
+            "gene_version": _get_gene_version(conn),
         }
     finally:
         conn.close()

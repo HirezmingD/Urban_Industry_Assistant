@@ -11,7 +11,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Query
 
 from src.config import TONGLU_BBOX
-from src.schemas import GridFeature, GridDetailResponse, MapQueryResponse
+from src.schemas import GridFeature, GridDetailResponse, MapQueryResponse, GridsGeometryRequest
 from src.services import grid_service
 
 logger = logging.getLogger(__name__)
@@ -53,7 +53,7 @@ def _parse_bbox(bbox_str: str) -> tuple[float, float, float, float]:
         (min_lng, min_lat, max_lng, max_lat)。
 
     Raises:
-        HTTPException: 格式错误或超出桐庐范围时 400。
+        HTTPException: 格式错误或超出中国东南某县范围时 400。
     """
     parts = bbox_str.split(",")
     if len(parts) != 4:
@@ -69,7 +69,7 @@ def _parse_bbox(bbox_str: str) -> tuple[float, float, float, float]:
        min_lat < TONGLU_BBOX[1] or max_lat > TONGLU_BBOX[3]:
         raise HTTPException(
             status_code=400,
-            detail=f"bbox 超出桐庐范围 {TONGLU_BBOX}",
+            detail=f"bbox 超出中国东南某县范围 {TONGLU_BBOX}",
         )
 
     return (min_lng, min_lat, max_lng, max_lat)
@@ -200,3 +200,49 @@ async def grid_layer(
 ) -> dict:
     """返回指定 zoom 层级的轻量渔网 GeoJSON。"""
     return grid_service.query_grid_layer(zoom, bbox)
+
+
+# ============================================================
+# P1-2: 批量网格几何查询（政府端地图高亮）
+# ============================================================
+
+@router.post("/grids_geometry")
+async def grids_geometry(request: GridsGeometryRequest):
+    """批量返回渔网格 GeoJSON（仅 geometry + grid_id）。
+
+    用于政府端地图高亮——按评估返回的 grid_id 列表获取网格多边形。
+    企业端调用返回 403。
+    """
+    if request.role != "government":
+        raise HTTPException(status_code=403, detail="企业端无权查看网格几何")
+
+    if not request.grid_ids or len(request.grid_ids) > 200:
+        raise HTTPException(status_code=400, detail="grid_ids 数量超限（1-200）")
+
+    from shapely import wkb
+    from shapely.geometry import mapping
+    from src.database import get_connection
+
+    conn = get_connection()
+    try:
+        placeholders = ",".join("?" for _ in request.grid_ids)
+        rows = conn.execute(
+            f"SELECT grid_id, geometry FROM land_grid_L0 WHERE grid_id IN ({placeholders})",
+            request.grid_ids,
+        ).fetchall()
+
+        features = []
+        for r in rows:
+            try:
+                geom = wkb.loads(r["geometry"])
+                features.append({
+                    "type": "Feature",
+                    "properties": {"grid_id": r["grid_id"]},
+                    "geometry": mapping(geom),
+                })
+            except Exception:
+                continue
+
+        return {"type": "FeatureCollection", "features": features}
+    finally:
+        conn.close()

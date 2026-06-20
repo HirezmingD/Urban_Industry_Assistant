@@ -78,6 +78,28 @@ if not TIANDITU_API_KEY:
 EVOMAP_HUB_URL: str = os.getenv("EVOMAP_HUB_URL", "https://evomap.ai")
 """EvoMap Hub 基础 URL。"""
 
+# === EvoMap OAuth2 开发者平台 ===
+EVOMAP_OAUTH_CLIENT_ID: str = os.getenv(
+    "EVOMAP_OAUTH_CLIENT_ID",
+    os.getenv("EVOMAP_CLIENT_ID", ""),
+)
+"""EvoMap OAuth2 客户端 ID。优先新变量名，fallback 到旧 EVOMAP_CLIENT_ID。"""
+
+EVOMAP_OAUTH_CLIENT_SECRET: str = os.getenv(
+    "EVOMAP_OAUTH_CLIENT_SECRET",
+    os.getenv("EVOMAP_CLIENT_SECRET", ""),
+)
+"""EvoMap OAuth2 客户端密钥。优先新变量名，fallback 到旧 EVOMAP_CLIENT_SECRET。"""
+
+EVOMAP_OAUTH_REDIRECT_URI: str = os.getenv(
+    "EVOMAP_OAUTH_REDIRECT_URI",
+    os.getenv(
+        "EVOMAP_REDIRECT_URI",
+        "http://127.0.0.1:8000/api/evomap/callback",
+    ),
+)
+"""EvoMap OAuth2 回调地址。优先新变量名，fallback 到旧 EVOMAP_REDIRECT_URI。"""
+
 
 def _read_evomap_file(filename: str) -> str | None:
     """从 ~/.evomap/ 目录读取节点凭据文件。"""
@@ -125,7 +147,7 @@ TILES_DIR: str = os.path.join(DATA_DIR, "tiles")
 """离线瓦片存储目录。data/tiles/{z}/{x}/{y}.png。"""
 
 # ============================================================
-# 桐庐地理边界
+# 中国东南某县地理边界
 # ============================================================
 # 实际值由数据预处理阶段精确推算（从 XZQ 图层外接矩形）
 # 当前为预估值
@@ -135,7 +157,7 @@ TONGLU_BBOX: tuple[float, float, float, float] = (
     119.80,   # max_lng
     30.12,    # max_lat
 )
-"""桐庐县域外接矩形 (min_lng, min_lat, max_lng, max_lat)，WGS84 坐标系。
+"""中国东南某县域外接矩形 (min_lng, min_lat, max_lng, max_lat)，WGS84 坐标系。
 注释：实际精确值由数据预处理阶段从 XZQ 图层外接矩形推算。"""
 
 # ============================================================
