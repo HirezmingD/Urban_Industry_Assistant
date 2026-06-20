@@ -580,6 +580,44 @@ async def _evolution_post_eval(
         logger.warning("自进化后处理异常", exc_info=True)
 
 
+async def _run_consultation_llm(
+    message: str, role: str, context: list[dict[str, str]] | None = None
+) -> dict[str, Any]:
+    """纯咨询场景：不查渔网，直接 LLM 分析政策/产业方向。"""
+    system_prompt = get_system_prompt(role)
+    user_prompt = (
+        f"当前用户咨询：{message}\n\n"
+        "请以产业政策咨询专家身份，分析本地产业政策环境、产业方向和供地条件。"
+        "不推荐具体地块。items 必须为空数组。"
+    )
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_prompt},
+    ]
+    if context:
+        recent = [m for m in context[-6:] if m.get("role") in ("user", "assistant")]
+        messages = messages[:1] + recent + messages[1:]
+    try:
+        from openai import OpenAI
+        async with _llm_semaphore:
+            client = OpenAI(api_key=DEEPSEEK_API_KEY, base_url=DEEPSEEK_BASE_URL)
+            response = await asyncio.to_thread(
+                client.chat.completions.create,
+                model=DEEPSEEK_MODEL,
+                messages=messages,
+                temperature=0.6,
+                max_tokens=1500,
+                timeout=LLM_TIMEOUT,
+            )
+        raw_content = response.choices[0].message.content or ""
+    except Exception:
+        logger.exception("咨询 LLM 调用失败")
+        return {"summary": "咨询分析暂时不可用，请稍后重试", "items": [], "policy_citations": [], "risks": [], "candidate_grids": []}
+    result = parse_llm_response(raw_content)
+    result["items"] = []
+    return result
+
+
 async def _publish_feedback_capsule(
     prev_gene: dict[str, Any],
     new_gene: dict[str, Any],
@@ -719,10 +757,8 @@ async def chat(
                     "candidate_grids": [],
                 }
 
-    # 无框选或 bbox 无效 → 纯产业咨询
-    # TODO[BatchD]: 实现纯咨询路径（不查渔网，调用 LLM 做产业建议）
-    #  当前退回 evaluate_grids 但 grid_ids 为空
-    return await evaluate_grids([], message, role, context, bbox=bbox, user_id=user_id)
+    # 纯咨询场景 → 调咨询 LLM
+    return await _run_consultation_llm(message, role, context)
 
 
 # ============================================================

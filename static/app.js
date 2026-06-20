@@ -271,7 +271,7 @@ function _mouseMoveHandler(e) {
 async function _mouseClickHandler(e) {
   if (state.role !== 'government') return;
   if (state._drawing) return;
-  const { lat, lng } = e.latlng; const zoom = map.getZoom();
+  const { lat, lng } = e.latlng, latlng = e.latlng; const zoom = map.getZoom();
   let gridId;
   try { const cells = await (await fetch(`${API_BASE}/api/map/ninegrid?lng=${lng}&lat=${lat}&zoom=${zoom}&role=government`)).json(); gridId = cells[0]?.grid_id; } catch {}
   if (!gridId) { stickyNote.hide(); return; }
@@ -279,7 +279,7 @@ async function _mouseClickHandler(e) {
     const r = await fetch(`${API_BASE}/api/map/grid/${gridId}?role=government`);
     if (!r.ok) return;
     const data = await r.json(); data.level = [11,12,13,14,15].reduce((a,z,i) => zoom<=z?i+1:a, 0);
-    const point = map.latLngToContainerPoint(e.latlng);
+    const point = map.latLngToContainerPoint(latlng);
     stickyNote.toggle(data, point);
   } catch {}
 }
@@ -343,6 +343,9 @@ function setRole(role) {
   // F10: 首次欢迎横幅
   maybeShowWelcomeBanner();
 
+  // F14: 角色切换自动收起展开态
+  if (chatExpanded) collapseDialog();
+
   // 更新 EvoMap 文案
   if (state.evolutionStats) updateEvoPanel(state.evolutionStats);
   else loadEvolutionStats();
@@ -380,30 +383,114 @@ async function sendChat() {
 function appendChatMessage(role, content) { const d = document.createElement('div'); d.className = `chat-msg ${role}`; d.id = 'msg-' + Date.now(); d.innerHTML = typeof content === 'string' ? content : ''; document.getElementById('chat-messages').appendChild(d); d.scrollIntoView({ behavior: 'smooth' }); return d.id; }
 
 function renderAgentReply(data) {
-  const d = document.createElement('div'); d.className = 'chat-msg assistant agent-reply';
+  const d = document.createElement('div');
+  d.className = 'chat-msg assistant agent-reply';
   let h = '';
-  if (typeof data.summary === 'string') h += `<p>${escapeHtml(data.summary)}</p>`;
-  if (data.items) data.items.forEach(item => {
-    h += `<div class="item"><span class="rank">#${item.rank}</span> <b>${escapeHtml(item.industry||'')}</b> <span class="score">${item.score||0}/10</span><p>${escapeHtml(item.reason||'')}</p>`;
-    if (item.policy_refs && item.policy_refs.length) h += `<div class="policy-cite">📜 ${item.policy_refs.map(escapeHtml).join('；')}</div>`;
-    if (item.risk) h += `<div class="risk">⚠️ ${escapeHtml(item.risk)}</div>`; h += '</div>';
+  var items = data.items || [];
+
+  // 摘要区
+  if (typeof data.summary === 'string' && data.summary.trim()) {
+    h += '<div class="reply-summary">📋 ' + escapeHtml(data.summary) + '</div>';
+  }
+
+  // 产业推荐卡片
+  if (items.length >= 2) h += '<div class="reply-card-zone">';
+  items.forEach(function(item, idx) {
+    var folded = idx >= 2;
+    h += '<div class="reply-card' + (folded ? ' folded' : '') + '">';
+    h += '<div class="reply-card-header">';
+    h += '<span class="reply-card-rank">#' + item.rank + '</span>';
+    h += '<span class="reply-card-industry">' + escapeHtml(item.industry||'') + '</span>';
+    h += '<span class="reply-card-score">' + (item.score||0) + '/10</span>';
+    if (folded) h += '<span class="reply-card-toggle">▼ 展开详情</span>';
+    h += '</div>';
+    h += '<div class="reply-card-body' + (folded ? ' hidden' : '') + '">';
+    h += '<p class="reply-card-reason">' + escapeHtml(item.reason||'') + '</p>';
+    if (item.policy_refs && item.policy_refs.length) {
+      h += '<div class="reply-card-policy">📜 ' + item.policy_refs.map(escapeHtml).join('；') + '</div>';
+    }
+    if (item.risk) h += '<div class="reply-card-risk">⚠️ ' + escapeHtml(item.risk) + '</div>';
+    h += '</div></div>';
   });
-  if (data.risks && data.risks.length) h += '<div class="risks-block">⚠️ 风险提示：' + data.risks.map(escapeHtml).join('；') + '</div>';
+  if (items.length >= 2) h += '</div>';
 
-  // 企业端专属：下一步建议
+  // 风险提示
+  if (data.risks && data.risks.length) {
+    h += '<div class="reply-risks">⚠️ 风险提示：' + data.risks.map(escapeHtml).join('；') + '</div>';
+  }
+
+  // 企业端
   if (state.role === 'enterprise' && data.next_steps) {
-    h += `<div class="card section-next-steps"><h4>👉 下一步建议</h4><p>${escapeHtml(data.next_steps)}</p></div>`;
+    h += '<div class="card section-next-steps"><h4>👉 下一步建议</h4><p>' + escapeHtml(data.next_steps) + '</p></div>';
   }
 
-  d.innerHTML = h; document.getElementById('chat-messages').appendChild(d);
-  // F10: 评估后尾注（仅政府端）
-  if (state.role === 'government' && data.items && data.items.length > 0) {
-    var tailNote = document.createElement('div');
-    tailNote.className = 'feedback-tail-note';
-    tailNote.textContent = '📝 对推荐结果不满意？发送反馈告诉我（如"XX类项目不适合这个区域"），我会学习并调整策略。';
-    d.appendChild(tailNote);
+  d.innerHTML = h;
+
+  // 折叠交互
+  d.querySelectorAll('.reply-card-toggle').forEach(function(toggle) {
+    toggle.addEventListener('click', function() {
+      var card = toggle.closest('.reply-card');
+      card.classList.toggle('folded');
+      var body = card.querySelector('.reply-card-body');
+      body.classList.toggle('hidden');
+      toggle.textContent = card.classList.contains('folded') ? '▼ 展开详情' : '▲ 收起详情';
+    });
+  });
+
+  d.appendChild(buildExpandButton());
+
+  // 尾注
+  if (state.role === 'government' && items.length > 0) {
+    var tail = document.createElement('div');
+    tail.className = 'feedback-tail-note';
+    tail.textContent = '📝 对推荐结果不满意？发送反馈告诉我（如"XX类项目不适合这个区域"），我会学习并调整策略。';
+    d.appendChild(tail);
   }
+
+  document.getElementById('chat-messages').appendChild(d);
   d.scrollIntoView({ behavior: 'smooth' });
+}
+
+// ===== F14: 对话框最大化模式 =====
+var chatExpanded = false;
+var chatOverlay = null;
+var escListener = null;
+
+function buildExpandButton() {
+  var btn = document.createElement('button');
+  btn.className = 'reply-expand-btn';
+  btn.title = '展开阅读';
+  btn.textContent = '⛶';
+  btn.addEventListener('click', function(e) {
+    e.stopPropagation();
+    if (chatExpanded) collapseDialog(); else expandDialog();
+  });
+  return btn;
+}
+
+function expandDialog() {
+  chatExpanded = true;
+  document.getElementById('app-main').classList.add('chat-expanded');
+  chatOverlay = document.createElement('div');
+  chatOverlay.className = 'chat-overlay';
+  document.querySelector('.center-column').appendChild(chatOverlay);
+  requestAnimationFrame(function() { chatOverlay.classList.add('active'); });
+  document.querySelectorAll('.reply-expand-btn').forEach(function(b) {
+    b.textContent = '⤡'; b.title = '收起';
+  });
+  escListener = function(e) { if (e.key === 'Escape') collapseDialog(); };
+  document.addEventListener('keydown', escListener);
+  chatOverlay.addEventListener('click', collapseDialog);
+}
+
+function collapseDialog() {
+  chatExpanded = false;
+  document.getElementById('app-main').classList.remove('chat-expanded');
+  if (chatOverlay) { chatOverlay.remove(); chatOverlay = null; }
+  document.querySelectorAll('.reply-expand-btn').forEach(function(b) {
+    b.textContent = '⛶'; b.title = '展开阅读';
+  });
+  if (escListener) { document.removeEventListener('keydown', escListener); escListener = null; }
 }
 function escapeHtml(str) { if (!str) return ''; const d = document.createElement('div'); d.textContent = str; return d.innerHTML; }
 function highlightCandidates(gridIds) {
