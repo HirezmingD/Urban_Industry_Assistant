@@ -10,6 +10,7 @@ import asyncio
 import hashlib
 import json
 import logging
+import os
 import re
 import time
 from collections import OrderedDict
@@ -353,6 +354,7 @@ async def evaluate_grids(
     })
 
     # ── Step 8: Gene 快照 + Capsule 发布（异步，不阻塞）──
+    logger.info("eval: Step 8 entered | role=%s | grids=%d | bbox=%s", role, len(grid_ids), bbox or "none")
     if role == "government":
         asyncio.create_task(_evolution_post_eval(
             result=result,
@@ -575,7 +577,7 @@ async def _evolution_post_eval(
         )
 
     except Exception:
-        logger.debug("自进化后处理跳过（不影响主流程）", exc_info=True)
+        logger.warning("自进化后处理异常", exc_info=True)
 
 
 async def _publish_feedback_capsule(
@@ -691,11 +693,15 @@ async def chat(
                 asyncio.create_task(_publish_feedback_capsule(
                     current_gene, new_gene, message
                 ))
+                from src.services.gene_service import _build_feedback_reply
+                reply = _build_feedback_reply(new_gene)
+                if not reply:
+                    reply = (
+                        f"📋 反馈已采纳，评估基因已更新"
+                        f"（v{current_gene.get('version', 0)}→v{new_gene.get('version', 0)}）。"
+                    )
                 return {
-                    "summary": (
-                        f"已记录反馈，评估基因已更新（v{current_gene.get('version', 0)}"
-                        f"→v{new_gene.get('version', 0)}）。"
-                    ),
+                    "summary": reply,
                     "items": [],
                     "policy_citations": [],
                     "risks": [],

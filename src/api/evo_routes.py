@@ -138,4 +138,6 @@ async def evo_status() -> dict:
         "preference_understanding": stats.get("preference_understanding", 0.0),
         "radar_values": stats.get("radar_values", {}),
         "gene_history": gene_history,
+        "degraded": evo_service.evo_client.degraded,
+        "heartbeat_fail_count": evo_service.evo_client.heartbeat_fail_count,
     }

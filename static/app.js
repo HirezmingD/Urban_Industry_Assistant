@@ -9,16 +9,16 @@ let TIANDITU_KEY = '';
 const TONGLU_BBOX = [119.16, 29.58, 119.80, 30.12];
 
 const LAND_COLORS = {
-  '商业用地': '#f0883e', '商业服务业设施用地': '#f0883e',
-  '工业用地': '#f0883e', '物流仓储用地': '#f0883e', '产业用地': '#f0883e',
-  '城镇住宅用地': '#ffdd57', '农村宅基地': '#ffdd57', '居住用地': '#ffdd57',
-  '水田': '#7ecb76', '旱地': '#7ecb76', '果园': '#7ecb76', '茶园': '#7ecb76', '农用地': '#7ecb76',
-  '乔木林地': '#2d8a4e', '竹林地': '#2d8a4e', '灌木林地': '#2d8a4e', '林地': '#2d8a4e',
-  '河流水面': '#58a6ff', '水库水面': '#58a6ff', '坑塘水面': '#58a6ff', '水域': '#58a6ff',
-  '公路用地': '#8b949e', '铁路用地': '#8b949e', '交通用地': '#8b949e',
-  '机关团体新闻出版用地': '#bc8cff', '科教文卫用地': '#bc8cff', '公服用地': '#bc8cff',
+  '商业用地': '#F5A623', '商业服务业设施用地': '#F5A623',
+  '工业用地': '#F5A623', '物流仓储用地': '#F5A623', '产业用地': '#F5A623',
+  '城镇住宅用地': '#FFDD57', '农村宅基地': '#FFDD57', '居住用地': '#FFDD57',
+  '水田': '#8EDB8A', '旱地': '#8EDB8A', '果园': '#8EDB8A', '茶园': '#8EDB8A', '农用地': '#8EDB8A',
+  '乔木林地': '#3AA85E', '竹林地': '#3AA85E', '灌木林地': '#3AA85E', '林地': '#3AA85E',
+  '河流水面': '#6DB8FF', '水库水面': '#6DB8FF', '坑塘水面': '#6DB8FF', '水域': '#6DB8FF',
+  '公路用地': '#A0AAB3', '铁路用地': '#A0AAB3', '交通用地': '#A0AAB3',
+  '机关团体新闻出版用地': '#C9A3FF', '科教文卫用地': '#C9A3FF', '公服用地': '#C9A3FF',
 };
-function getLandColor(lt) { return LAND_COLORS[lt] || '#6e7681'; }
+function getLandColor(lt) { return LAND_COLORS[lt] || '#8899AA'; }
 
 // ===== 2. 状态管理 =====
 const state = {
@@ -119,7 +119,7 @@ async function loadAdminBoundaries() {
 
     adminBoundaryLayer = L.geoJSON(data, {
       interactive: false,
-      style: { color: '#1A1B1C', weight: 2, fillOpacity: 0, dashArray: null }
+      style: { color: 'rgba(255,255,255,0.30)', weight: 1, fillOpacity: 0, dashArray: null }
     }).addTo(map);
 
     // XZQ 最大外接矩形约束地图视角
@@ -206,7 +206,7 @@ function findAdminFeature(lng, lat) {
 // ---- Box Selection ----
 function setupDrawControl() {
   if (state.drawControl) return;
-  state.drawControl = new L.Control.Draw({ draw: { rectangle: { shapeOptions: { color: '#f0883e', weight: 2 } }, polygon: false, polyline: false, circle: false, marker: false, circlemarker: false }, edit: false });
+  state.drawControl = new L.Control.Draw({ draw: { rectangle: { shapeOptions: { color: '#13C2C2', weight: 2 } }, polygon: false, polyline: false, circle: false, marker: false, circlemarker: false }, edit: false });
   map.addControl(state.drawControl);
   map.on('draw:drawstart', () => {
     state._drawing = true;
@@ -250,7 +250,7 @@ async function handleBboxQuery(bbox) {
 }
 function renderBboxHighlight(geojson) {
   if (state.candidateLayer) map.removeLayer(state.candidateLayer);
-  state.candidateLayer = L.geoJSON(geojson, { style: { color: '#f0883e', weight: 1, fillOpacity: 0.3, fillColor: '#f0883e' } }).addTo(map);
+  state.candidateLayer = L.geoJSON(geojson, { style: { color: '#13C2C2', weight: 1, fillOpacity: 0.25, fillColor: '#13C2C2' } }).addTo(map);
 }
 
 // ---- Mouse Interaction ----
@@ -339,7 +339,9 @@ function setRole(role) {
 
   // 更新输入框 placeholder
   const input = document.getElementById('center-chat-input');
-  if (input) input.placeholder = role === 'government' ? '输入您的问题，例如：城东30亩适合什么产业？' : '描述您的用地需求，例如：我需要1000㎡厂房';
+  if (input) input.placeholder = role === 'government' ? '输入问题或反馈，例如：城东30亩适合什么产业？或 权属分散地块不要优先推荐' : '输入您的需求，例如：我需要1000平厂房做食品加工，在分水镇附近';
+  // F10: 首次欢迎横幅
+  maybeShowWelcomeBanner();
 
   // 更新 EvoMap 文案
   if (state.evolutionStats) updateEvoPanel(state.evolutionStats);
@@ -393,7 +395,15 @@ function renderAgentReply(data) {
     h += `<div class="card section-next-steps"><h4>👉 下一步建议</h4><p>${escapeHtml(data.next_steps)}</p></div>`;
   }
 
-  d.innerHTML = h; document.getElementById('chat-messages').appendChild(d); d.scrollIntoView({ behavior: 'smooth' });
+  d.innerHTML = h; document.getElementById('chat-messages').appendChild(d);
+  // F10: 评估后尾注（仅政府端）
+  if (state.role === 'government' && data.items && data.items.length > 0) {
+    var tailNote = document.createElement('div');
+    tailNote.className = 'feedback-tail-note';
+    tailNote.textContent = '📝 对推荐结果不满意？发送反馈告诉我（如"XX类项目不适合这个区域"），我会学习并调整策略。';
+    d.appendChild(tailNote);
+  }
+  d.scrollIntoView({ behavior: 'smooth' });
 }
 function escapeHtml(str) { if (!str) return ''; const d = document.createElement('div'); d.textContent = str; return d.innerHTML; }
 function highlightCandidates(gridIds) {
@@ -570,11 +580,11 @@ function highlightAsConvexHull(candidates) {
     var hull = computeConvexHull(points);
     if (hull.length >= 3) {
       var latlngs = hull.map(function(p) { return [p[1], p[0]]; });
-      var poly = L.polygon(latlngs, { color: '#1890FF', weight: 2, fillColor: '#1890FF', fillOpacity: 0.12, dashArray: '6 4' }).addTo(matchHighlightLayer);
+      var poly = L.polygon(latlngs, { color: '#13C2C2', weight: 2, fillColor: '#13C2C2', fillOpacity: 0.20, dashArray: '6 4' }).addTo(matchHighlightLayer);
       poly.bindTooltip('大致范围示意，非精确地块边界', { permanent: true, direction: 'center', className: 'convex-hull-tip', offset: [0, 0] });
     }
   } else if (points.length === 1) {
-    L.circle([points[0][1], points[0][0]], { radius: 800, color: '#1890FF', weight: 2, fillColor: '#1890FF', fillOpacity: 0.12, dashArray: '6 4' }).addTo(matchHighlightLayer);
+    L.circle([points[0][1], points[0][0]], { radius: 800, color: '#13C2C2', weight: 2, fillColor: '#13C2C2', fillOpacity: 0.20, dashArray: '6 4' }).addTo(matchHighlightLayer);
   }
 }
 
@@ -715,7 +725,9 @@ function switchEvoTab(tabName) {
 // === 进化曲线 ===
 function renderCurveChart(geneHistory) {
   var el = document.getElementById('evo-content-curve');
-  if (!geneHistory || geneHistory.length < 2) {
+  // F8: 反转数组（服务器返回 DESC，前端需要 ASC 才能画从左到右的折线）
+  var history = geneHistory ? geneHistory.slice().reverse() : [];
+  if (!history || history.length < 2) {
     if (el) el.innerHTML = '<div class="evo-empty">' + getEvoLabels().emptyCurve + '</div>';
     return;
   }
@@ -729,9 +741,9 @@ function renderCurveChart(geneHistory) {
       labels: geneHistory.map(function(g) { return 'v' + g.version; }),
       datasets: [
         { label: '权属协调度', data: geneHistory.map(function(g) { return g.nld_qsxt; }), borderColor: '#1890FF', backgroundColor: 'rgba(24,144,255,0.1)', tension: 0.2, yAxisID: 'y' },
-        { label: '产业集聚度', data: geneHistory.map(function(g) { return g.yld_jjd; }), borderColor: '#FA8C16', tension: 0.2, yAxisID: 'y' },
-        { label: '交通可达性', data: geneHistory.map(function(g) { return g.yld_jtkd; }), borderColor: '#52C41A', tension: 0.2, yAxisID: 'y' },
-        { label: '评估累计（次）', data: geneHistory.map(function(g) { return g.eval_count; }), borderColor: '#8B8FA3', borderDash: [4,4], tension: 0.2, yAxisID: 'y1' },
+        { label: '产业集聚度', data: geneHistory.map(function(g) { return g.yld_jjd; }), borderColor: '#FAAD14', tension: 0.2, yAxisID: 'y' },
+        { label: '交通可达性', data: geneHistory.map(function(g) { return g.yld_jtkd; }), borderColor: '#13C2C2', tension: 0.2, yAxisID: 'y' },
+        { label: '评估累计（次）', data: geneHistory.map(function(g) { return g.eval_count; }), borderColor: '#5A6A7A', borderDash: [4,4], tension: 0.2, yAxisID: 'y1' },
       ],
     },
     options: {
@@ -788,7 +800,7 @@ async function renderCapsuleList() {
       div.setAttribute('data-status', status);
       div.innerHTML =
         '<div class="capsule-header">' +
-        '<span class="capsule-badge" data-status="' + status + '">● ' + (status === 'candidate' ? '已发布' : '失败') + '</span>' +
+        '<span class="capsule-badge" data-status="' + status + '">● ' + (status === 'candidate' ? '已发布' : 'Gene') + '</span>' +
         '<span class="capsule-scene">' + escapeHtml(scene) + '</span>' +
         '<span class="capsule-time">' + time + '</span>' +
         '</div>' +
@@ -831,11 +843,18 @@ function updateEvoPanel(data) {
   if (prefEl) prefEl.textContent = (data.preference_understanding || 0) + '%';
   if (capsEl) capsEl.textContent = data.capsules_published || 0;
 
+  // F11: 智能总结
+  var insightEl = document.getElementById('evo-insight');
+  if (insightEl) insightEl.textContent = generateInsightText(data.gene_history, data);
+
+  // F12: 连接状态
+  updateEvoStatus(data);
+
   // 角色角标
   var badge = document.getElementById('evo-role-badge');
   if (badge) badge.textContent = state.role === 'government' ? '政府端' : '企业端';
 
-  // 兼容旧 DOM（evo-experience 等可能已被移除）
+  // 兼容旧 DOM
   var expEl = document.getElementById('evo-experience');
   var methEl = document.getElementById('evo-methodology');
   var capsTextEl = document.getElementById('evo-capsules');
@@ -852,8 +871,8 @@ function renderRadarChart(values) {
   const labels = ['产业匹配', '政策理解', '空间分析', '风险识别', '企业匹配'];
   state.radarChart = new Chart(ctx, {
     type: 'radar',
-    data: { labels, datasets: [{ label: '能力雷达', data: labels.map(l => values[l] || 30), backgroundColor: 'rgba(24,144,255,0.15)', borderColor: '#1890FF', borderWidth: 2, pointBackgroundColor: '#1890FF', pointBorderColor: '#fff', pointRadius: 4 }] },
-    options: { responsive: false, scales: { r: { min: 0, max: 100, ticks: { stepSize: 20, color: '#6B7280', backdropColor: 'transparent' }, pointLabels: { color: '#1A1B1C', font: { size: 10 } }, grid: { color: '#E0E3E8' }, angleLines: { color: '#E0E3E8' } } }, plugins: { legend: { display: false } } }
+    data: { labels, datasets: [{ label: '能力雷达', data: labels.map(l => values[l] || 30), backgroundColor: 'rgba(19,194,194,0.20)', borderColor: '#13C2C2', borderWidth: 2, pointBackgroundColor: '#13C2C2', pointBorderColor: '#0F2440', pointRadius: 4 }] },
+    options: { responsive: false, scales: { r: { min: 0, max: 100, ticks: { stepSize: 20, color: '#8899AA', backdropColor: 'transparent' }, pointLabels: { color: '#E8ECF1', font: { size: 11 } }, grid: { color: 'rgba(255,255,255,0.10)' }, angleLines: { color: 'rgba(255,255,255,0.10)' } } }, plugins: { legend: { display: false } } }
   });
 }
 function startEvolutionPolling() { if (!state.evolutionTimer) state.evolutionTimer = setInterval(loadEvolutionStats, 60000); }
@@ -987,6 +1006,116 @@ function initEnterpriseForm() {
   });
 }
 
+// ===== 右栏分隔条拖拽 =====
+function setupPanelDivider() {
+  var divider = document.getElementById('panel-divider');
+  var chatPanel = document.getElementById('chat-panel');
+  var evoPanel = document.getElementById('evo-panel');
+  var rightCol = document.querySelector('.right-column');
+  if (!divider || !chatPanel || !evoPanel || !rightCol) return;
+
+  var startY, startChatH, startEvoH, totalH;
+
+  function onDragStart(e) {
+    e.preventDefault();
+    divider.classList.add('dragging');
+    startY = e.touches ? e.touches[0].clientY : e.clientY;
+    startChatH = chatPanel.offsetHeight;
+    startEvoH = evoPanel.offsetHeight;
+    totalH = startChatH + startEvoH;
+    document.addEventListener('mousemove', onDragMove);
+    document.addEventListener('touchmove', onDragMove, { passive: false });
+    document.addEventListener('mouseup', onDragEnd);
+    document.addEventListener('touchend', onDragEnd);
+  }
+
+  function onDragMove(e) {
+    e.preventDefault();
+    var cy = e.touches ? e.touches[0].clientY : e.clientY;
+    var delta = cy - startY;
+    var newChatH = startChatH + delta;
+    var minChatH = 80;
+    var minEvoH = 80;
+    if (newChatH < minChatH) newChatH = minChatH;
+    if (totalH - newChatH < minEvoH) newChatH = totalH - minEvoH;
+    chatPanel.style.flex = '0 0 ' + newChatH + 'px';
+    evoPanel.style.flex = '0 0 ' + (totalH - newChatH) + 'px';
+    // 触发图表重绘
+    if (state.radarChart) state.radarChart.resize();
+    if (window.curveChart) window.curveChart.resize();
+  }
+
+  function onDragEnd() {
+    divider.classList.remove('dragging');
+    document.removeEventListener('mousemove', onDragMove);
+    document.removeEventListener('touchmove', onDragMove);
+    document.removeEventListener('mouseup', onDragEnd);
+    document.removeEventListener('touchend', onDragEnd);
+  }
+
+  divider.addEventListener('mousedown', onDragStart);
+  divider.addEventListener('touchstart', onDragStart);
+}
+
+// ===== F10: 反馈入口引导 =====
+function maybeShowWelcomeBanner() {
+  var today = new Date().toISOString().slice(0, 10);
+  var dismissed = localStorage.getItem('uia_welcome_dismissed');
+  if (dismissed === today) return;
+  var chatMessages = document.getElementById('chat-messages');
+  var banner = document.createElement('div');
+  banner.className = 'welcome-banner';
+  banner.innerHTML =
+    '<span class="welcome-text">' +
+    (state.role === 'government'
+      ? '💡 评估完成后，您可以对不满意的推荐发送反馈（如"权属分散地块不要优先推荐"），系统会根据您的意见自动调整评估策略。'
+      : '💡 填写您的企业需求信息后，系统将为您推荐最适合的产业用地区域。') +
+    '</span>' +
+    '<button class="welcome-close" title="关闭">&times;</button>';
+  banner.querySelector('.welcome-close').addEventListener('click', function() {
+    banner.remove(); localStorage.setItem('uia_welcome_dismissed', today);
+  });
+  chatMessages.prepend(banner);
+}
+
+// ===== F11: 进化面板体验 =====
+function generateInsightText(geneHistory, stats) {
+  if (!geneHistory || geneHistory.length === 0) {
+    return state.role === 'government'
+      ? '尚未积累进化数据，完成首次评估后自动开始学习策略'
+      : '尚未积累匹配经验，每次匹配都将帮助 Agent 更懂您的需求';
+  }
+  var latest = geneHistory[geneHistory.length - 1];
+  var dims = [
+    { name: '权属协调度', val: latest.nld_qsxt },
+    { name: '产业集聚度', val: latest.yld_jjd },
+    { name: '交通可达性', val: latest.yld_jtkd },
+  ];
+  dims.sort(function(a, b) { return (b.val || 0) - (a.val || 0); });
+  var topDim = dims[0];
+  return '经 ' + (stats.evolution_count || 0) + ' 次评估持续进化，系统已自动将'
+    + '「' + topDim.name + '」提升为核心维度（权重 ' + ((topDim.val || 0).toFixed(2)) + '）';
+}
+
+// ===== F12: EvoMap 状态指示器 =====
+function updateEvoStatus(data) {
+  var dot = document.getElementById('evo-status-dot');
+  var text = document.getElementById('evo-status-text');
+  var credits = document.getElementById('evo-credits');
+  if (!dot || !text || !credits) return;
+  credits.textContent = '积分 ' + (data.credit_balance || 0);
+  if (data.heartbeat_fail_count >= 3 || !data.online) {
+    dot.className = 'evo-status-dot offline';
+    text.textContent = '离线';
+  } else if (data.degraded) {
+    dot.className = 'evo-status-dot degraded';
+    text.textContent = '受限';
+  } else {
+    dot.className = 'evo-status-dot online';
+    text.textContent = '在线';
+  }
+}
+
 // ===== 启动 =====
 window.addEventListener('DOMContentLoaded', async () => {
   await loadConfig();
@@ -1000,6 +1129,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('ent-search').addEventListener('input', (e) => loadEnterprises(e.target.value));
   document.getElementById('ent-match-btn').addEventListener('click', triggerMatch);
   initEnterpriseForm();
+  setupPanelDivider();
   setupEvoTabs();
   loadEvolutionStats();
   startEvolutionPolling();

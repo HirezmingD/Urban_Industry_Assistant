@@ -3,17 +3,17 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Urban_Industry_Assistant — 城市产业空间智能助手</title>
+<title>面向市县级政府的AI自进化产业用地评估系统_demo</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css">
 <link rel="stylesheet" href="app.css">
 </head>
-<body class="light">
+<body>
 
 <!-- ===== Header ===== -->
 <header id="top-bar">
-  <div class="top-bar-logo">🏙 Urban_Industry_Assistant</div>
-  <div class="top-bar-subtitle">城市产业空间智能助手</div>
+  <div class="top-bar-logo">面向市县级政府的AI自进化产业用地评估系统</div>
+  <div class="top-bar-subtitle">仅为功能演示demo，信息与数据不具备真实性</div>
   <nav class="role-segment" id="role-segment">
     <button id="btn-gov" data-role="government" class="active">🏛 政府端</button>
     <button id="btn-ent" data-role="enterprise">🏢 企业端</button>
@@ -101,10 +101,16 @@
       </div>
       <div class="chat-messages" id="chat-messages"></div>
     </section>
+    <div class="panel-divider" id="panel-divider"></div>
     <section class="evo-panel" id="evo-panel">
       <div class="evo-header">
         <h3 class="evo-title">🧬 Agent 自进化</h3>
         <span class="evo-role-badge" id="evo-role-badge">政府端</span>
+      </div>
+      <div class="evo-status" id="evo-status">
+        <span class="evo-status-dot online" id="evo-status-dot"></span>
+        <span class="evo-status-text" id="evo-status-text">在线</span>
+        <span class="evo-credits" id="evo-credits">积分 0</span>
       </div>
       <nav class="evo-tabs" id="evo-tabs">
         <button class="evo-tab active" data-evo-tab="radar">能力雷达</button>
@@ -129,6 +135,7 @@
         <span class="evo-stat">🎯 偏好理解度 <strong id="evo-pref">0%</strong></span>
         <span class="evo-stat">🎁 已贡献 <strong id="evo-caps">0</strong> 条</span>
       </div>
+      <span class="evo-insight" id="evo-insight">尚未积累进化数据</span>
     </section>
   </div>
 
