@@ -363,7 +363,6 @@ function setupChat() {
 }
 
 async function sendChat() {
-  clearHighlights();
   const input = document.getElementById('center-chat-input'); const msg = input.value.trim(); if (!msg) return; input.value = '';
   document.getElementById('center-char-count').textContent = '0/500';
   appendChatMessage('user', msg); state.chatHistory.push({ role: 'user', content: msg });

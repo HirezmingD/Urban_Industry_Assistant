@@ -38,6 +38,23 @@ _llm_semaphore = asyncio.Semaphore(LLM_SEMAPHORE_LIMIT)
 LLM_TIMEOUT = 30  # 秒
 
 # ============================================================
+# F15 hardcode: 空间意图关键词（模块级常量）
+# ============================================================
+
+_SPATIAL_INTENT_KEYWORDS: list[str] = [
+    "哪些地块",
+    "推荐用地",
+    "推荐几块地",
+    "哪里有地",
+    "哪里适合",
+    "找地",
+    "用地推荐",
+    "推荐地块",
+    "选地",
+    "地块推荐",
+]
+
+# ============================================================
 # v2.1: F1 去重机制（模块级）
 # ============================================================
 
@@ -274,7 +291,10 @@ async def evaluate_grids(
 
     # Step 4: 构建 prompt
     system_prompt = get_system_prompt(role)
+    historical_context = _extract_historical_candidates(context)
     user_prompt = build_eval_prompt(grid_data, policy_context, role)
+    if historical_context:
+        user_prompt += "\n" + historical_context
 
     messages: list[dict[str, str]] = [
         {"role": "system", "content": system_prompt},
@@ -367,86 +387,12 @@ async def evaluate_grids(
             user_id=user_id,
         ))
 
-    # P1-2: 增强 candidate_grids（附加坐标 + 产业 + 评分）
-    result["candidate_grids"] = _enhance_candidate_grids(
-        result.get("candidate_grids", []), result.get("items", []), grid_ids
+    # F15 hardcode: 硬编码规则生成 candidate_grids，忽略 LLM 输出
+    result["candidate_grids"] = _build_candidate_grids(
+        grid_ids, result.get("items", [])
     )
 
     return result
-
-
-# ============================================================
-# P1-2: Candidate Grids 增强
-# ============================================================
-
-def _enhance_candidate_grids(
-    candidate_grids: list,
-    items: list[dict[str, Any]],
-    grid_ids: list[str],
-) -> list[dict[str, Any]]:
-    """为每个候选网格附加 center_lng/center_lat/industry/score/reason。
-
-    Args:
-        candidate_grids: LLM 返回的候选网格列表（可能为空或旧格式）。
-        items: 评估结果 items（含 industry/score/reason）。
-        grid_ids: 本次评估涉及的所有 grid_id（用于关联）。
-
-    Returns:
-        list[dict]: 增强后的候选网格列表。
-    """
-    if not candidate_grids:
-        return []
-
-    best_item = items[0] if items else {}
-
-    # ★ 格式检测：如果条目已有 lng/lat，直接增强
-    first = candidate_grids[0]
-    is_coord_obj = isinstance(first, dict) and "lng" in first
-
-    if is_coord_obj:
-        # 坐标对象格式：[{lng, lat}, ...] — 直接用，不加 grid_id
-        return [
-            {
-                "lng": round(c.get("lng", 119.5), 6),
-                "lat": round(c.get("lat", 29.8), 6),
-                "industry": best_item.get("industry", ""),
-                "score": best_item.get("score", 0),
-                "reason": (best_item.get("reason", "") or "")[:80],
-            }
-            for c in candidate_grids
-        ]
-
-    # grid_id 格式：["grid_1", ...] 或 [{grid_id: "grid_1"}, ...]
-    # 批量查 L0 中心坐标
-    conn = get_connection()
-    try:
-        all_ids = [g.get("grid_id", g) if isinstance(g, dict) else str(g) for g in candidate_grids]
-        placeholders = ",".join("?" for _ in all_ids)
-        rows = conn.execute(
-            f"""SELECT grid_id,
-                       (min_lng + max_lng) / 2.0 AS center_lng,
-                       (min_lat + max_lat) / 2.0 AS center_lat
-                FROM land_grid_L0 WHERE grid_id IN ({placeholders})""",
-            all_ids,
-        ).fetchall()
-        coords = {r["grid_id"]: (r["center_lng"], r["center_lat"]) for r in rows}
-    finally:
-        conn.close()
-
-    best_item = items[0] if items else {}
-    enhanced = []
-    for entry in candidate_grids:
-        gid = entry.get("grid_id", entry) if isinstance(entry, dict) else entry
-        lng, lat = coords.get(gid, (119.5, 29.8))
-        enhanced.append({
-            "grid_id": str(gid),
-            "lng": round(lng, 6),
-            "lat": round(lat, 6),
-            "industry": best_item.get("industry", ""),
-            "score": best_item.get("score", 0),
-            "reason": (best_item.get("reason", "") or "")[:80],
-        })
-    return enhanced
 
 
 async def _evolution_post_eval(
@@ -581,15 +527,106 @@ async def _evolution_post_eval(
 
 
 async def _run_consultation_llm(
-    message: str, role: str, context: list[dict[str, str]] | None = None
+    message: str,
+    role: str,
+    context: list[dict[str, str]] | None = None,
 ) -> dict[str, Any]:
-    """纯咨询场景：不查渔网，直接 LLM 分析政策/产业方向。"""
+    """纯咨询场景：关键词检测 → 分流 → 推荐路径 / 政策对话路径。
+
+    Branch A: 命中关键词 + 有历史 → LLM 分析 + 硬编码 candidate_grids
+    Branch B: 命中关键词 + 无历史 → 引导文案
+    Branch C: 未命中关键词 → 正常政策对话
+    """
+
+    # ── Step 1: 关键词检测 ──
+    # 空间意图检测：精确关键词 + 两词共现（覆盖"推荐XX用地""哪些XX地块"等变体）
+    has_spatial_intent = (
+        any(kw in message for kw in _SPATIAL_INTENT_KEYWORDS)
+        or ("推荐" in message and "用地" in message)
+        or ("推荐" in message and "地块" in message)
+        or ("哪些" in message and "地块" in message)
+        or ("哪里" in message and "地" in message)
+        or ("有没有" in message and "地" in message)
+    )
+
+    # ── Step 2: 提取历史候选网格 ──
+    historical_context = _extract_historical_candidates(context)
+
+    # ── Branch A: 命中关键词 + 有历史候选网格 → 推荐路径 ──
+    if has_spatial_intent and historical_context:
+        # LLM 产业分析（不要求 LLM 输出 candidate_grids）
+        system_prompt = get_system_prompt(role)
+        user_prompt = (
+            f"当前用户咨询：{message}\n\n"
+            "请以产业政策咨询专家身份，分析本地产业政策环境、产业方向和供地条件。"
+            "你不需要推荐具体地块。items 必须为空数组。"
+        )
+        user_prompt += "\n" + historical_context
+
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ]
+        if context:
+            recent = [m for m in context[-6:] if m.get("role") in ("user", "assistant")]
+            messages = messages[:1] + recent + messages[1:]
+
+        # 调 LLM
+        try:
+            from openai import OpenAI
+            async with _llm_semaphore:
+                client = OpenAI(api_key=DEEPSEEK_API_KEY, base_url=DEEPSEEK_BASE_URL)
+                response = await asyncio.to_thread(
+                    client.chat.completions.create,
+                    model=DEEPSEEK_MODEL,
+                    messages=messages,
+                    temperature=0.6,
+                    max_tokens=1500,
+                    timeout=LLM_TIMEOUT,
+                )
+            raw_content = response.choices[0].message.content or ""
+        except Exception:
+            logger.exception("咨询 LLM 调用失败")
+            # 降级：LLM 失败仍返回历史地块硬编码
+            return {
+                "summary": "咨询分析暂时不可用，以下为历史评估记录中的推荐地块。",
+                "items": [],
+                "policy_citations": [],
+                "risks": [],
+                "candidate_grids": _extract_candidate_grids_from_history(context),
+            }
+
+        result = parse_llm_response(raw_content)
+
+        # ★ 关键：candidate_grids = 硬编码从历史提取
+        # 不依赖 LLM 输出的 candidate_grids（LLM prompt 已要求 items 为空）
+        result["candidate_grids"] = _extract_candidate_grids_from_history(context)
+        result["items"] = []  # 确保 items 为空
+
+        return result
+
+    # ── Branch B: 命中关键词 + 无历史候选网格 → 引导 ──
+    if has_spatial_intent and not historical_context:
+        return {
+            "summary": (
+                "📋 当前暂无历史评估数据，"
+                "请先在地图上框选地块进行评估，"
+                "评估完成后再次询问'推荐用地'，我将为您筛选推荐地块。"
+            ),
+            "items": [],
+            "policy_citations": [],
+            "risks": [],
+            "candidate_grids": [],
+        }
+
+    # ── Branch C: 未命中关键词 → 正常政策对话（不推荐，不阻断）──
     system_prompt = get_system_prompt(role)
     user_prompt = (
         f"当前用户咨询：{message}\n\n"
         "请以产业政策咨询专家身份，分析本地产业政策环境、产业方向和供地条件。"
         "不推荐具体地块。items 必须为空数组。"
     )
+
     messages = [
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": user_prompt},
@@ -597,6 +634,8 @@ async def _run_consultation_llm(
     if context:
         recent = [m for m in context[-6:] if m.get("role") in ("user", "assistant")]
         messages = messages[:1] + recent + messages[1:]
+
+    # 调 LLM
     try:
         from openai import OpenAI
         async with _llm_semaphore:
@@ -612,10 +651,165 @@ async def _run_consultation_llm(
         raw_content = response.choices[0].message.content or ""
     except Exception:
         logger.exception("咨询 LLM 调用失败")
-        return {"summary": "咨询分析暂时不可用，请稍后重试", "items": [], "policy_citations": [], "risks": [], "candidate_grids": []}
+        return {
+            "summary": "咨询分析暂时不可用，请稍后重试",
+            "items": [],
+            "policy_citations": [],
+            "risks": [],
+            "candidate_grids": [],
+        }
+
     result = parse_llm_response(raw_content)
     result["items"] = []
+    result["candidate_grids"] = []
     return result
+
+
+def _extract_historical_candidates(context: list[dict] | None) -> str:
+    """从对话历史中提取最近轮的 candidate_grids，构造历史地块上下文。"""
+    if not context:
+        return ""
+    assistant_msgs = [m for m in context[-8:] if m.get("role") == "assistant"][-4:]
+    seen_ids: set[str] = set()
+    candidates: list[dict] = []
+    for msg in reversed(assistant_msgs):
+        try:
+            data = json.loads(msg.get("content", "{}"))
+            grids = data.get("candidate_grids", [])
+            if not grids:
+                continue
+            for g in grids:
+                gid = g.get("grid_id", "")
+                if gid and gid not in seen_ids:
+                    seen_ids.add(gid)
+                    candidates.append(g)
+        except (json.JSONDecodeError, TypeError):
+            continue
+    if not candidates:
+        return ""
+    candidates = candidates[:10]
+    lines = ["\n## 历史推荐地块上下文", "以下地块在前几轮对话中已被系统推荐过："]
+    for c in candidates:
+        industry = c.get("industry", "未知")
+        score = c.get("score", "?")
+        reason = (c.get("reason") or "")[:40]
+        reason_text = f"；{reason}" if reason else ""
+        lines.append(f"- {c['grid_id']}（{industry}，评分 {score}{reason_text}）")
+    lines.append("")
+    lines.append("如果用户本轮表达了空间落地意图，请从上表中筛选匹配的地块填入 candidate_grids。")
+    return "\n".join(lines)
+
+
+def _extract_candidate_grids_from_history(
+    context: list[dict] | None,
+) -> list[dict[str, Any]]:
+    """从对话历史中提取最近轮次的 candidate_grids（硬编码，不调 LLM）。
+
+    与 _extract_historical_candidates() 不同：
+    - 前者返回 Markdown 字符串（给 LLM 读）
+    - 本函数返回结构化列表（直接填充 AgentReply.candidate_grids）
+    """
+    if not context:
+        return []
+
+    # 取最近 4 条 assistant 消息
+    assistant_msgs = [
+        m for m in context[-8:] if m.get("role") == "assistant"
+    ][-4:]
+
+    seen_ids: set[str] = set()
+    candidates: list[dict] = []
+
+    for msg in reversed(assistant_msgs):
+        try:
+            data = json.loads(msg.get("content", "{}"))
+            grids = data.get("candidate_grids", [])
+            if not grids:
+                continue
+            for g in grids:
+                gid = g.get("grid_id", "")
+                if gid and gid not in seen_ids:
+                    seen_ids.add(gid)
+                    candidates.append({
+                        "grid_id": gid,
+                        "lng": g.get("lng", 0),
+                        "lat": g.get("lat", 0),
+                        "industry": g.get("industry", ""),
+                        "score": g.get("score", 0),
+                        "reason": (g.get("reason") or "")[:80],
+                    })
+        except (json.JSONDecodeError, TypeError):
+            continue
+
+    return candidates[:10]
+
+
+def _build_candidate_grids(
+    grid_ids: list[str],
+    items: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """硬编码规则生成候选网格：框选范围内按 ZHDF 降序取 Top N。
+
+    完全忽略 LLM 输出的 candidate_grids。
+    一次 JOIN land_grid_indicators + land_grid_L0 获取 ZHDF + 中心坐标。
+    """
+    if not grid_ids:
+        return []
+
+    # ── 1. 确定 N：与 items 数量对齐，上限 10 ──
+    # 推荐数量与 items 解耦，固定取 20 格
+    N = 20
+
+    # ── 2. 查询 ZHDF 综合得分 + 中心坐标 ──
+    conn = get_connection()
+    try:
+        placeholders = ",".join("?" for _ in grid_ids)
+        rows = conn.execute(f"""
+            SELECT
+                i.grid_id,
+                i.ZHDF AS zhdf,
+                (l.min_lng + l.max_lng) / 2.0 AS center_lng,
+                (l.min_lat + l.max_lat) / 2.0 AS center_lat
+            FROM land_grid_indicators i
+            JOIN land_grid_L0 l ON i.grid_id = l.grid_id
+            WHERE i.grid_id IN ({placeholders})
+            ORDER BY i.ZHDF DESC
+            LIMIT {N}
+        """, grid_ids).fetchall()
+    finally:
+        conn.close()
+
+    if not rows:
+        # 极端情况：indicators 缺失这些 grid_id → fallback 仅查 L0
+        conn2 = get_connection()
+        try:
+            rows2 = conn2.execute(f"""
+                SELECT grid_id,
+                       0.0 AS zhdf,
+                       (min_lng + max_lng) / 2.0 AS center_lng,
+                       (min_lat + max_lat) / 2.0 AS center_lat
+                FROM land_grid_L0
+                WHERE grid_id IN ({placeholders})
+                LIMIT {N}
+            """, grid_ids).fetchall()
+            rows = rows2
+        finally:
+            conn2.close()
+
+    # ── 3. 构造 candidate_grids，轮转附加 items 信息 ──
+    candidate_grids: list[dict[str, Any]] = []
+    for i, row in enumerate(rows):
+        item = items[i % len(items)] if items else {}
+        candidate_grids.append({
+            "grid_id": row["grid_id"],
+            "lng": round(row["center_lng"], 6),
+            "lat": round(row["center_lat"], 6),
+            "industry": item.get("industry", ""),
+            "score": item.get("score", 0),
+            "reason": (item.get("reason") or "")[:80],
+        })
+
+    return candidate_grids
 
 
 async def _publish_feedback_capsule(
