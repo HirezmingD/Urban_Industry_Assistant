@@ -14,9 +14,16 @@
 
 *Agent主界面：四种交互模式*
 
+####场景一：询问AI→整体政策咨询
 ![Demo界面截图1](https://obsidian-1-1315010744.cos.ap-shanghai.myqcloud.com/pic/2022/202606211038650.png)
+
+####场景二：单选/多选企业→企业/商户选址建议
 ![Demo界面截图2](https://obsidian-1-1315010744.cos.ap-shanghai.myqcloud.com/pic/2022/202606211038749.png)
+
+####场景三：框选地块→合适产业推荐
 ![Demo界面截图3](https://obsidian-1-1315010744.cos.ap-shanghai.myqcloud.com/pic/2022/202606211038759.png)
+
+####场景四：点选地块→用地及区位分析
 ![Demo界面截图4](https://obsidian-1-1315010744.cos.ap-shanghai.myqcloud.com/pic/2022/202606211038768.png)
 
 ---
