@@ -25,4 +25,13 @@ tonglu_data/
 outputs/
 node_modules/
 desensitize.py
+
+# Deployment scripts (may contain server paths/keys)
+scripts/
+
+# GeoJSON spatial data (government survey derivatives)
+static/*.geojson
+
+# Temporary / debug artifacts
+failed_tiles.txt
 research/
