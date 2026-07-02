@@ -1,16 +1,14 @@
 # Urban_Industry_Assistant — 城市产业空间智能助手
 
-> **2026「Beyond the Maze」EvoMap 黑客松参赛作品 · The Pearl 赛道（智能体自进化）**
->
-> 当单体 Agent 的每一次评估、每一次匹配都在进化，它就不再是工具——而是县域政府身边最懂产业用地的 AI 参谋长。
+> 面向县域政府的 AI 自进化产业用地评估系统——让每一块地都有数据支撑的产业答案。
 
 ---
 
-## 作品简介
+## 项目简介
 
-**Urban_Industry_Assistant** 是一个面向县域政府的 AI 自进化产业用地评估系统。以中国东南某县为 Demo 样本区域，基于现状土地利用数据，通过 AI 对话式交互为规划部门提供地块评估、产业适配建议和企业需求匹配。
+**Urban_Industry_Assistant** 是一个面向县域政府的 AI 自进化产业用地评估系统。基于现状土地利用数据，通过 AI 对话式交互为规划部门提供地块评估、产业适配建议和企业需求匹配。
 
-**核心命题**：中国县域经济中，土地一级市场由政府主导，但"这块地适合什么产业"的决策高度依赖人工经验。本作品让 AI Agent 在每次评估中自进化，逐渐逼近最优的"地-产"匹配逻辑。
+**核心命题**：中国县域经济中，土地一级市场由政府主导，但"这块地适合什么产业"的决策高度依赖人工经验。本系统让 AI Agent 在每次评估中自进化，逐渐逼近最优的"地-产"匹配逻辑。
 
 ### Agent 主界面：四种交互模式
 
@@ -25,16 +23,6 @@
 
 #### 场景四：点选地块 → 用地及区位分析
 ![Demo界面截图4](https://obsidian-1-1315010744.cos.ap-shanghai.myqcloud.com/pic/2022/202606211038768.png)
-
----
-
-## 赛道定位
-
-| 赛道 | 方向 | 本作品对应 |
-|------|------|------|
-| **The Pearl** | 垂类领域自进化 | 空间规划 × 产业经济交叉领域 |
-
-本作品深度应用 EvoMap 的 Gene（经验基因）/ Capsule（经验胶囊）/ Hub（集体智能）机制，让 Agent 的产业评估方法论随着每次评估逐步进化，形成"越用越懂本地"的正反馈闭环。
 
 ---
 
@@ -70,7 +58,7 @@
 
 ### 隐私方案：公私分离
 
-敏感决策数据（原始土地利用矢量、完整指标字段）永久留在本地 SQLite。通过 EvoMap 发布到 Hub 的只有脱敏后的评估方法论（Gene/Capsule）——**数据不出域，经验可共享**。
+敏感决策数据（原始土地利用矢量、完整指标字段）永久留在本地 SQLite。通过 EvoMap 自进化协议发布的只有脱敏后的评估方法论（Gene/Capsule）——**数据不出域，经验可共享**。
 
 ---
 
@@ -162,14 +150,16 @@ Urban_Industry_Assistant/
 
 ---
 
-## EvoMap 自进化设计
+## 自进化机制（集成 EvoMap）
+
+本系统集成 [EvoMap](https://clawhub.ai/segasonicye/skills/evomap) 自进化 Skill（[开源](https://github.com/EvoMap/evolver)），让 Agent 的产业评估方法论随每次评估逐步优化。
 
 ```
 评估完成
   ↓
 提取 Gene（经验基因）：七维权重分布 + 产业-地类匹配偏好
   ↓
-打包为 Capsule（经验胶囊）→ publish 到 EvoMap Hub
+打包为 Capsule（经验胶囊）→ 通过 EvoMap 协议发布
   ↓
 下次评估注入进化后的方法论 → System Prompt 动态更新
   ↓
@@ -178,7 +168,7 @@ Urban_Industry_Assistant/
 
 - **Gene**：单次评估中提炼的评估策略快照——七维权重、推荐产业、置信度
 - **Capsule**：附带有场景/触发原因/影响摘要的经验单元，支持去重与震荡保护
-- **Hub**：EvoMap 集体智能网络，让异地 Agent 可复用本地积累的产业评估经验
+- **集体智能**：通过 EvoMap Hub 共享评估经验，让异地实例可复用本地积累的产业评估方法论
 - **版本演进**：反馈修正触发主版本升级，权重变化 >5% 触发次版本迭代，1 小时震荡保护防频繁跳动
 
 ---
@@ -191,17 +181,13 @@ Urban_Industry_Assistant/
 | 后端 | FastAPI · Python 3.11 · httpx (async) |
 | 数据 | SQLite · R-tree · pyproj (CGCS2000→WGS84) · Shapely (WKB) |
 | AI | DeepSeek Chat API · System Prompt 工程 · 多 Prompt 模板 |
-| 自进化 | EvoMap A2A 协议 · Gene/Capsule 发布 · 去重 & 震荡保护 |
+| 自进化 | EvoMap 协议 · Gene/Capsule 经验管理 · 去重 & 震荡保护 |
 | 工具链 | 多 Agent 协作 · handoffs 文件驱动 · 5 阶段开发流水线 |
 
 ---
 
 ## 致谢
 
-- **EvoMap** — 自进化基础设施 & 技术支持
-- **相关数据提供方** — 土地利用数据（Demo 学术用途）
+- **EvoMap** — 自进化基础设施（[Clawhub Skill](https://clawhub.ai/segasonicye/skills/evomap) · [开源](https://github.com/EvoMap/evolver)）
+- **相关数据提供方** — 土地利用数据（学术用途）
 - **天地图** — 卫星影像底图服务
-
----
-
-*Built for 「Beyond the Maze」Hackathon, June 19-21, 2026*

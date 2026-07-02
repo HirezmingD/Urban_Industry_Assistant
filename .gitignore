@@ -35,3 +35,9 @@ static/*.geojson
 # Temporary / debug artifacts
 failed_tiles.txt
 research/
+
+# Architecture & PRD documents (confidential)
+specs/
+
+# Postmortem / retrospective reports (confidential)
+postmortem/
