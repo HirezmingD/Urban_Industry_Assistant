@@ -1,6 +1,12 @@
 # Urban_Industry_Assistant — 城市产业空间智能助手
 
+> **2026「Beyond the Maze」EvoMap 黑客松参赛作品 · The Pearl 赛道（智能体自进化）**
+> 
+> 作品提交链接：https://hackathon.evomap.ai/projects/cmqn2v0ul0000psp7fwcicntw
+> 
 > 面向县域政府的 AI 自进化产业用地评估系统——让每一块地都有数据支撑的产业答案。
+> 
+> 当单体 Agent 的每一次评估、每一次匹配都在进化，它就不再是工具——而是县域政府身边最懂产业用地的 AI 参谋长.
 
 ---
 
